@@ -232,8 +232,8 @@ PeoplePay360 implements a granular permission matrix across 5 roles and 6 module
 
 | Branch | Description |
 |---|---|
-| `main` | Backend API — Express + Prisma + TypeScript server |
-| `frontend` | Frontend app — React + Vite + Tailwind CSS |
+| `main` | Backend API - Express + Prisma + TypeScript server |
+| `frontend` | Frontend app - React + Vite + Tailwind CSS |
 | `database` | Database schema and migration scripts |
 
 ---
