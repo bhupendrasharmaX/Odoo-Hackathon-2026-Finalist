@@ -15,9 +15,13 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "prisma:generate": "prisma generate --schema ../prisma/schema.prisma",
-    "prisma:migrate": "prisma migrate dev --schema ../prisma/schema.prisma",
-    "prisma:studio": "prisma studio --schema ../prisma/schema.prisma"
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:reset": "prisma migrate reset --force",
+    "seed": "tsx src/seed.ts",
+    "db:setup": "prisma migrate deploy && prisma generate && tsx src/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
@@ -49,5 +53,8 @@
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
+  },
+  "prisma": {
+    "seed": "tsx src/seed.ts"
   }
 }
