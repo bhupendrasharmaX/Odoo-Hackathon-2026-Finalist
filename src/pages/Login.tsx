@@ -1,190 +1,193 @@
-import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Check, ArrowRight } from 'lucide-react';
+import { useState, type SyntheticEvent } from 'react';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { AlertCircle, ArrowRight, Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
-import { useToast } from '../components/Toast';
-import type { Role } from '../types';
+import { errorMessage } from '../lib/useApi';
+import { Button } from '../components/ui';
 
-const DEMO_ACCOUNTS: { email: string; password: string; role: Role; name: string }[] = [
-  { email: 'admin@peoplepay360.com',    password: 'admin123',   role: 'super_admin',     name: 'Super Admin' },
-  { email: 'hr@peoplepay360.com',       password: 'hr123',      role: 'hr_manager',      name: 'HR Manager' },
-  { email: 'hrexec@peoplepay360.com',   password: 'hrexec123',  role: 'hr_executive',    name: 'HR Executive' },
-  { email: 'payroll@peoplepay360.com',  password: 'payroll123', role: 'payroll_manager', name: 'Payroll Manager' },
-  { email: 'employee@peoplepay360.com', password: 'emp123',     role: 'employee',        name: 'Employee' },
+/** Seeded logins, so a reviewer can walk the role matrix without a setup step. */
+const DEMO_ACCOUNTS = [
+  { email: 'admin@peoplepay.com', label: 'Administrator', note: 'Full access, users and roles' },
+  { email: 'payrollmgr@peoplepay.com', label: 'Payroll Manager', note: 'Runs payroll end to end' },
+  { email: 'payroll@peoplepay.com', label: 'Payroll User', note: 'Payroll, read-only on salary config' },
+  { email: 'hr@peoplepay.com', label: 'HR Manager', note: 'People ops — walled out of payroll' },
+  { email: 'aarav@peoplepay.com', label: 'Employee', note: 'Own records only' },
 ];
 
-const HIGHLIGHTS = [
-  'Onboard, track and pay your whole team in one place',
-  'Approve payroll runs with a full audit trail',
-  'Attendance and leave that reconcile themselves',
-  'Role-based access for every kind of teammate',
-];
+const DEMO_PASSWORD = 'demo1234';
 
 export function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, isAuthenticated, booting } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { addToast } = useToast();
 
-  const from = (location.state as any)?.from?.pathname || '/';
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname ?? '/';
+
+  if (!booting && isAuthenticated) return <Navigate to={from} replace />;
+
+  const submit = async (event: SyntheticEvent) => {
+    event.preventDefault();
+    setError(null);
+    setBusy(true);
     try {
-      await login(email, password);
-      addToast('success', 'Logged in successfully');
+      await login(email.trim(), password);
       navigate(from, { replace: true });
-    } catch (err: any) {
-      addToast('error', 'Login failed', err.message);
+    } catch (cause) {
+      setError(errorMessage(cause));
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   };
 
-  const handleQuickLogin = (account: (typeof DEMO_ACCOUNTS)[number]) => {
-    setEmail(account.email);
-    setPassword(account.password);
+  const fillFromDemoAccount = (accountEmail: string) => {
+    setEmail(accountEmail);
+    setPassword(DEMO_PASSWORD);
+    setError(null);
   };
 
   return (
-    <div className="min-h-screen flex">
-      {/* ---------- Left: blue hero panel ---------- */}
-      <div className="hidden lg:flex lg:w-[52%] relative overflow-hidden bg-[linear-gradient(135deg,#2B50F5_0%,#1E3ED4_55%,#1A34B0_100%)]">
-        {/* Decorative orbs */}
-        <div className="absolute -top-32 -right-24 w-[420px] h-[420px] rounded-full bg-white/[0.07]" />
-        <div className="absolute bottom-[-160px] right-24 w-[320px] h-[320px] rounded-full bg-white/[0.05]" />
-        <div className="absolute top-1/3 -left-20 w-[240px] h-[240px] rounded-full bg-white/[0.04]" />
-
-        <div className="relative flex flex-col justify-between p-14 xl:p-16 text-white w-full">
-          {/* Logo */}
-          <span className="text-lg font-bold tracking-tight">
-            People<span className="text-white/60">Pay</span>360
-          </span>
-
-          {/* Headline */}
-          <div className="max-w-lg">
-            <h1 className="display-lg">
-              HR and payroll
-              <br />
-              people actually love
-            </h1>
-            <p className="text-base text-white/70 mt-5 leading-relaxed">
-              PeoplePay360 is the internal operations tool where your team can
-              run headcount, attendance, leave and payroll — without a single
-              spreadsheet changing hands.
-            </p>
-
-            <ul className="mt-9 space-y-3.5">
-              {HIGHLIGHTS.map((item) => (
-                <li key={item} className="flex items-start gap-3">
-                  <span className="mt-0.5 w-5 h-5 rounded-full bg-white/15 flex items-center justify-center flex-shrink-0">
-                    <Check size={12} strokeWidth={3} />
-                  </span>
-                  <span className="text-sm text-white/85 leading-relaxed">
-                    {item}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Footer stats — echoes the reference's trust strip */}
-          <div className="flex items-center gap-10">
-            {[
-              { value: '15', label: 'Employees' },
-              { value: '5', label: 'Roles' },
-              { value: '₹16.8L', label: 'Monthly gross' },
-            ].map((s) => (
-              <div key={s.label}>
-                <p className="text-xl font-bold tabular-nums">{s.value}</p>
-                <p className="text-xs text-white/55 mt-0.5">{s.label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* ---------- Right: form ---------- */}
-      <div className="flex-1 flex items-center justify-center bg-white px-6 py-12 overflow-y-auto">
-        <div className="w-full max-w-[400px]">
-          {/* Mobile logo */}
-          <div className="lg:hidden mb-8">
-            <span className="text-lg font-bold tracking-tight text-[var(--ink)]">
+    <div className="min-h-screen grid lg:grid-cols-[1fr_1.05fr] bg-[var(--canvas)]">
+      {/* Form side */}
+      <div className="flex items-center justify-center px-5 sm:px-10 py-12">
+        <div className="w-full max-w-[400px] animate-rise">
+          <div className="flex items-center gap-2.5 mb-9">
+            <span className="w-10 h-10 rounded-[12px] bg-[var(--accent)] text-white grid place-items-center font-black shadow-[var(--shadow-accent)]">
+              P
+            </span>
+            <span className="text-[19px] font-extrabold tracking-tight text-[var(--ink)]">
               People<span className="text-[var(--accent)]">Pay</span>360
             </span>
           </div>
 
-          <h2 className="display-sm text-[var(--ink)]">Welcome back</h2>
-          <p className="page-subtitle">
-            Sign in to your PeoplePay360 workspace.
-          </p>
+          <h1 className="display-md">Welcome back</h1>
+          <p className="page-subtitle mb-8">Sign in to continue to your workspace.</p>
 
-          <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+          <form onSubmit={submit} className="space-y-4" noValidate>
             <div>
-              <label className="label">Work email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="input"
-                placeholder="you@company.com"
-              />
+              <label className="label" htmlFor="email">
+                Email address
+              </label>
+              <div className="relative">
+                <Mail
+                  size={16}
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--muted)] pointer-events-none"
+                />
+                <input
+                  id="email"
+                  type="email"
+                  autoComplete="username"
+                  required
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="you@peoplepay.com"
+                  className="input pl-10"
+                />
+              </div>
             </div>
 
             <div>
-              <label className="label">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="input"
-                placeholder="••••••••"
-              />
+              <label className="label" htmlFor="password">
+                Password
+              </label>
+              <div className="relative">
+                <Lock
+                  size={16}
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--muted)] pointer-events-none"
+                />
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder="••••••••"
+                  className="input pl-10 pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((shown) => !shown)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted)] hover:text-[var(--ink)] transition-colors"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
 
-            <button
+            {error && (
+              <div
+                role="alert"
+                className="flex items-start gap-2.5 rounded-[var(--r-md)] bg-[var(--danger-soft)] px-3.5 py-3 text-[13px] text-[var(--danger)] animate-rise"
+              >
+                <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
+                <span className="font-medium">{error}</span>
+              </div>
+            )}
+
+            <Button
               type="submit"
-              disabled={loading}
-              className="btn btn-primary w-full"
+              variant="primary"
+              loading={busy}
+              className="w-full"
+              icon={<ArrowRight size={16} />}
             >
-              {loading ? 'Signing in…' : 'Sign in'}
-              {!loading && <ArrowRight size={16} />}
-            </button>
+              {busy ? 'Signing in…' : 'Sign in'}
+            </Button>
           </form>
 
-          {/* Quick login (mock mode) */}
-          <div className="mt-10">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="h-px flex-1 bg-[var(--line)]" />
-              <span className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider">
-                Or try a demo role
-              </span>
-              <span className="h-px flex-1 bg-[var(--line)]" />
-            </div>
+          <p className="mt-6 text-[12px] text-[var(--muted)]">
+            Accounts are created by an administrator.
+          </p>
+        </div>
+      </div>
 
-            <div className="grid grid-cols-1 gap-2">
-              {DEMO_ACCOUNTS.map((account) => (
-                <button
-                  key={account.email}
-                  type="button"
-                  onClick={() => handleQuickLogin(account)}
-                  className="group flex items-center justify-between px-4 h-11 rounded-[var(--r-md)] border border-[var(--line)] bg-white hover:border-[var(--accent)] hover:bg-[var(--accent-soft)] transition-colors text-left"
-                >
-                  <span className="text-[13px] font-semibold text-[var(--ink)]">
-                    {account.name}
-                  </span>
-                  <span className="text-xs text-[var(--slate)] group-hover:text-[var(--accent)] transition-colors">
-                    {account.email.split('@')[0]}
-                  </span>
-                </button>
-              ))}
-            </div>
+      {/* Demo-account side */}
+      <div className="hidden lg:flex items-center justify-center p-10 bg-[var(--sidebar-bg)] relative overflow-hidden">
+        <div className="absolute -right-24 -top-32 w-[420px] h-[420px] rounded-full bg-white/[0.04]" />
+        <div className="absolute -left-20 bottom-[-160px] w-[340px] h-[340px] rounded-full bg-[var(--accent)]/20" />
+
+        <div className="relative w-full max-w-[420px] text-white">
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/45">
+            Demo accounts
+          </p>
+          <h2 className="display-md mt-2.5 text-white">Sign in as any role</h2>
+          <p className="text-sm text-white/60 mt-2">
+            Password:{' '}
+            <code className="px-1.5 py-0.5 rounded bg-white/10 font-semibold">{DEMO_PASSWORD}</code>
+          </p>
+
+          <div className="mt-7 space-y-2">
+            {DEMO_ACCOUNTS.map((account) => (
+              <button
+                key={account.email}
+                type="button"
+                onClick={() => fillFromDemoAccount(account.email)}
+                className={`w-full text-left rounded-[var(--r-lg)] border transition-all px-4 py-3.5 group ${
+                  email === account.email
+                    ? 'border-[var(--accent-light)] bg-white/[0.11]'
+                    : 'border-white/10 bg-white/[0.04] hover:bg-white/[0.09] hover:border-white/25'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[13.5px] font-bold">{account.label}</p>
+                    <p className="text-[11.5px] text-white/55 mt-0.5 truncate">{account.note}</p>
+                  </div>
+                  <ArrowRight
+                    size={15}
+                    className="text-white/30 group-hover:text-white group-hover:translate-x-0.5 transition-all flex-shrink-0"
+                  />
+                </div>
+                <p className="text-[11px] text-white/40 mt-1.5 font-mono">{account.email}</p>
+              </button>
+            ))}
           </div>
         </div>
       </div>

@@ -1,58 +1,57 @@
+import type { Role } from '../types';
+
 /**
- * PeoplePay360 — Permission Matrix & Checker
+ * The role matrix, mirrored from the server's `config/roles.ts`.
  *
- * IMPORTANT: Frontend role-hiding is UX only — the backend enforces
- * permissions independently. Never write logic that assumes the
- * frontend is the gatekeeper.
+ * This is UX only. The backend enforces every one of these independently, and
+ * a hidden button is never the reason an action is refused - if these two ever
+ * disagree, the server wins and the user sees a 403 toast.
+ *
+ * THE WALL: HR_MANAGER is deliberately absent from every payroll group.
  */
-import type { Role, PermissionModule, PermissionAction, PermissionValue } from '../types';
 
-type PermissionMatrix = Record<
-  PermissionModule,
-  Partial<Record<PermissionAction, Record<Role, PermissionValue>>>
->;
-
-export const PERMISSIONS: PermissionMatrix = {
-  employees: {
-    read:   { super_admin: true, hr_manager: true, hr_executive: true,  payroll_manager: true,  employee: 'self' },
-    write:  { super_admin: true, hr_manager: true, hr_executive: true,  payroll_manager: false, employee: false },
-    delete: { super_admin: true, hr_manager: true, hr_executive: false, payroll_manager: false, employee: false },
-  },
-  payroll: {
-    read:    { super_admin: true, hr_manager: true,  hr_executive: false, payroll_manager: true,  employee: 'self' },
-    write:   { super_admin: true, hr_manager: false, hr_executive: false, payroll_manager: true,  employee: false },
-    approve: { super_admin: true, hr_manager: true,  hr_executive: false, payroll_manager: false, employee: false },
-  },
-  attendance: {
-    read:  { super_admin: true, hr_manager: true, hr_executive: true,  payroll_manager: true,  employee: 'self' },
-    write: { super_admin: true, hr_manager: true, hr_executive: true,  payroll_manager: false, employee: 'self' },
-  },
-  leave: {
-    read:    { super_admin: true, hr_manager: true,  hr_executive: true,  payroll_manager: false, employee: 'self' },
-    write:   { super_admin: true, hr_manager: true,  hr_executive: false, payroll_manager: false, employee: 'self' },
-    approve: { super_admin: true, hr_manager: true,  hr_executive: false, payroll_manager: false, employee: false },
-  },
-  settings: {
-    read:  { super_admin: true, hr_manager: true,  hr_executive: false, payroll_manager: false, employee: false },
-    write: { super_admin: true, hr_manager: false, hr_executive: false, payroll_manager: false, employee: false },
-  },
-  reports: {
-    read: { super_admin: true, hr_manager: true, hr_executive: false, payroll_manager: true, employee: false },
-  },
+export const ROLE_LABELS: Record<Role, string> = {
+  EMPLOYEE: 'Employee',
+  HR_MANAGER: 'HR Manager',
+  HR_PAYROLL_USER: 'Payroll User',
+  HR_PAYROLL_MANAGER: 'Payroll Manager',
+  ADMIN: 'Administrator',
 };
 
-/**
- * Check if a role has permission for a given module and action.
- * Returns true, false, or 'self'.
- */
-export function checkPermission(
-  role: Role,
-  module: PermissionModule,
-  action: PermissionAction
-): PermissionValue {
-  const modulePerms = PERMISSIONS[module];
-  if (!modulePerms) return false;
-  const actionPerms = modulePerms[action];
-  if (!actionPerms) return false;
-  return actionPerms[role] ?? false;
+export const ROLE_GROUPS = {
+  ADMIN_ONLY: ['ADMIN'],
+  /** People-ops: employees, contracts, schedules, attendance, time off. */
+  HR_PLUS: ['HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN'],
+  SALARY_READ: ['HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN'],
+  SALARY_WRITE: ['HR_PAYROLL_MANAGER', 'ADMIN'],
+  PAYROLL: ['HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN'],
+  DASHBOARD: ['HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN'],
+  PAYSLIP_READ: ['EMPLOYEE', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN'],
+  GRIEVANCE_RESOLVE: ['HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN'],
+  ANY: ['EMPLOYEE', 'HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN'],
+} satisfies Record<string, Role[]>;
+
+export type RoleGroup = keyof typeof ROLE_GROUPS;
+
+export function inGroup(role: Role | undefined, group: RoleGroup): boolean {
+  if (!role) return false;
+  return (ROLE_GROUPS[group] as readonly Role[]).includes(role);
 }
+
+/**
+ * Named capabilities, so a component asks "may I?" rather than restating the
+ * role list. Add here, never inline a role comparison in a page.
+ */
+export const CAN = {
+  viewDashboard: (r?: Role) => inGroup(r, 'DASHBOARD'),
+  viewPeople: (r?: Role) => inGroup(r, 'HR_PLUS'),
+  writePeople: (r?: Role) => inGroup(r, 'HR_PLUS'),
+  viewSalaryConfig: (r?: Role) => inGroup(r, 'SALARY_READ'),
+  writeSalaryConfig: (r?: Role) => inGroup(r, 'SALARY_WRITE'),
+  viewPayruns: (r?: Role) => inGroup(r, 'PAYROLL'),
+  viewPayslips: (r?: Role) => inGroup(r, 'PAYSLIP_READ'),
+  resolveGrievance: (r?: Role) => inGroup(r, 'GRIEVANCE_RESOLVE'),
+  manageUsers: (r?: Role) => inGroup(r, 'ADMIN_ONLY'),
+  /** Employees see only their own rows; everyone else sees the whole org. */
+  isSelfScoped: (r?: Role) => r === 'EMPLOYEE',
+} as const;

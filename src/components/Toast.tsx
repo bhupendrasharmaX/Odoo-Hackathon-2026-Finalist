@@ -15,6 +15,10 @@ interface ToastContextValue {
   toasts: Toast[];
   addToast: (type: ToastType, title: string, message?: string) => void;
   removeToast: (id: string) => void;
+  /** Shortcuts, so a call site reads as `success('Saved')`. */
+  success: (title: string, message?: string) => void;
+  error: (title: string, message?: string) => void;
+  info: (title: string, message?: string) => void;
 }
 
 // --- Context ---
@@ -40,13 +44,27 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     (type: ToastType, title: string, message?: string) => {
       const id = `toast-${++toastCounter}`;
       setToasts((prev) => [...prev, { id, type, title, message }]);
-      setTimeout(() => removeToast(id), 4000);
+      // Failures stay up longer - they usually carry something to act on.
+      setTimeout(() => removeToast(id), type === 'error' ? 7000 : 4000);
     },
     [removeToast]
   );
 
+  const success = useCallback(
+    (title: string, message?: string) => addToast('success', title, message),
+    [addToast],
+  );
+  const error = useCallback(
+    (title: string, message?: string) => addToast('error', title, message),
+    [addToast],
+  );
+  const info = useCallback(
+    (title: string, message?: string) => addToast('info', title, message),
+    [addToast],
+  );
+
   return (
-    <ToastContext.Provider value={{ toasts, addToast, removeToast }}>
+    <ToastContext.Provider value={{ toasts, addToast, removeToast, success, error, info }}>
       {children}
       <ToastContainer toasts={toasts} onDismiss={removeToast} />
     </ToastContext.Provider>

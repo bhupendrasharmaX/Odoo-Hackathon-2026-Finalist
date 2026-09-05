@@ -1,228 +1,190 @@
-import { useState, useMemo } from 'react';
-import { Search, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useMemo, useState, type ReactNode } from 'react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
+import { EmptyState, SkeletonRows } from './ui';
 
-// --- Column definition ---
 export interface Column<T> {
   key: string;
   header: string;
-  render?: (row: T) => React.ReactNode;
+  render?: (row: T) => ReactNode;
+  /** Value used for sorting when `render` returns markup. */
+  sortValue?: (row: T) => string | number;
   sortable?: boolean;
-  /** Right-align (for money/numbers) */
   align?: 'left' | 'right' | 'center';
-  /** Width hint */
   width?: string;
+  /** Hide below the `lg` breakpoint - for columns that are nice, not vital. */
+  hideOnMobile?: boolean;
 }
 
 interface DataTableProps<T> {
   columns: Column<T>[];
   data: T[];
-  /** Unique key extractor */
   rowKey: (row: T) => string;
-  /** Rows per page. Default: 15 */
-  pageSize?: number;
-  /** Show search bar. Default: true */
-  searchable?: boolean;
-  /** Search fields to filter on */
-  searchFields?: (keyof T)[];
-  /** Row click handler */
+  loading?: boolean;
   onRowClick?: (row: T) => void;
-  /** Empty state message */
+  /** Highlights the active row, e.g. the record open in a side panel. */
+  activeKey?: string | null;
+  emptyTitle?: string;
   emptyMessage?: string;
+  emptyAction?: ReactNode;
+  footer?: ReactNode;
+  /** Drops the outer card chrome, for tables nested inside another card. */
+  bare?: boolean;
+  /** Caps the body height in px and pins the header while it scrolls. */
+  maxHeight?: number;
+  /** Tints alternate rows — helps the eye track across a wide table. */
+  zebra?: boolean;
 }
 
 type SortDir = 'asc' | 'desc';
 
-export function DataTable<T extends object>({
+export function DataTable<T>({
   columns,
   data,
   rowKey,
-  pageSize = 15,
-  searchable = true,
-  searchFields,
+  loading = false,
   onRowClick,
-  emptyMessage = 'No data found',
+  activeKey,
+  emptyTitle = 'Nothing here yet',
+  emptyMessage,
+  emptyAction,
+  footer,
+  bare = false,
+  maxHeight,
+  zebra = false,
 }: DataTableProps<T>) {
-  const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
-  const [page, setPage] = useState(0);
 
-  // Filter
-  const filtered = useMemo(() => {
-    if (!search.trim()) return data;
-    const q = search.toLowerCase();
-    return data.filter((row) => {
-      const rec = row as Record<string, unknown>;
-      const fields = searchFields || (Object.keys(rec) as (keyof T)[]);
-      return fields.some((f) => {
-        const val = rec[f as string];
-        return val != null && String(val).toLowerCase().includes(q);
-      });
-    });
-  }, [data, search, searchFields]);
-
-  // Sort
   const sorted = useMemo(() => {
-    if (!sortKey) return filtered;
-    return [...filtered].sort((a, b) => {
-      const av = (a as Record<string, unknown>)[sortKey];
-      const bv = (b as Record<string, unknown>)[sortKey];
-      if (av == null && bv == null) return 0;
-      if (av == null) return 1;
-      if (bv == null) return -1;
+    if (!sortKey) return data;
+    const column = columns.find((col) => col.key === sortKey);
+    if (!column) return data;
+
+    const valueOf = (row: T): string | number => {
+      if (column.sortValue) return column.sortValue(row);
+      const raw = (row as Record<string, unknown>)[column.key];
+      if (typeof raw === 'number') return raw;
+      return raw == null ? '' : String(raw);
+    };
+
+    return [...data].sort((a, b) => {
+      const av = valueOf(a);
+      const bv = valueOf(b);
       if (typeof av === 'number' && typeof bv === 'number') {
         return sortDir === 'asc' ? av - bv : bv - av;
       }
-      const as = String(av);
-      const bs = String(bv);
-      return sortDir === 'asc' ? as.localeCompare(bs) : bs.localeCompare(as);
+      return sortDir === 'asc'
+        ? String(av).localeCompare(String(bv))
+        : String(bv).localeCompare(String(av));
     });
-  }, [filtered, sortKey, sortDir]);
+  }, [data, columns, sortKey, sortDir]);
 
-  // Paginate
-  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
-  const safePage = Math.min(page, totalPages - 1);
-  const paged = sorted.slice(safePage * pageSize, (safePage + 1) * pageSize);
-
-  const handleSort = (key: string) => {
-    if (sortKey === key) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+  const toggleSort = (column: Column<T>) => {
+    if (column.sortable === false) return;
+    if (sortKey === column.key) {
+      setSortDir((dir) => (dir === 'asc' ? 'desc' : 'asc'));
     } else {
-      setSortKey(key);
+      setSortKey(column.key);
       setSortDir('asc');
     }
-    setPage(0);
   };
 
-  const renderSortIcon = (key: string) => {
-    if (sortKey !== key)
-      return <ChevronUp size={12} className="text-[#C6CEE0]" />;
-    return sortDir === 'asc' ? (
-      <ChevronUp size={12} className="text-[var(--accent)]" />
-    ) : (
-      <ChevronDown size={12} className="text-[var(--accent)]" />
+  const alignClass = (align?: Column<T>['align']) =>
+    align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left';
+
+  const shell = bare ? '' : 'card overflow-hidden';
+
+  if (loading) {
+    return (
+      <div className={shell}>
+        <SkeletonRows rows={6} cols={Math.min(columns.length, 5)} />
+      </div>
     );
-  };
+  }
+
+  if (sorted.length === 0) {
+    return (
+      <div className={shell}>
+        <EmptyState title={emptyTitle} message={emptyMessage} action={emptyAction} />
+      </div>
+    );
+  }
 
   return (
-    <div className="card overflow-hidden">
-      {/* Search bar */}
-      {searchable && (
-        <div className="px-5 py-3.5 border-b border-[var(--line)]">
-          <div className="relative max-w-xs">
-            <Search
-              size={15}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)] pointer-events-none"
-            />
-            <input
-              type="text"
-              placeholder="Search…"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(0);
-              }}
-              className="input h-9 pl-9 bg-[var(--canvas)]"
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full">
+    <div className={shell}>
+      <div
+        className={`overflow-x-auto ${maxHeight ? 'overflow-y-auto' : ''}`}
+        style={maxHeight ? { maxHeight } : undefined}
+      >
+        <table className={`w-full border-collapse ${maxHeight ? 'table-sticky' : ''}`}>
           <thead>
             <tr className="bg-[#F7F9FD]">
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className={`h-11 px-4 text-[11px] font-bold tracking-wider uppercase text-[var(--slate)] border-b border-[var(--line)] select-none ${
-                    col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'
-                  } ${col.sortable !== false ? 'cursor-pointer hover:text-[var(--accent)]' : ''}`}
                   style={{ width: col.width }}
-                  onClick={() => col.sortable !== false && handleSort(col.key)}
+                  onClick={() => toggleSort(col)}
+                  className={`h-11 px-4 text-[11px] font-bold tracking-wider uppercase text-[var(--slate)] border-b border-[var(--line)] select-none whitespace-nowrap ${alignClass(
+                    col.align,
+                  )} ${col.sortable === false ? '' : 'cursor-pointer hover:text-[var(--accent)]'} ${
+                    col.hideOnMobile ? 'hidden lg:table-cell' : ''
+                  }`}
                 >
-                  <span className="inline-flex items-center gap-1">
+                  <span
+                    className={`inline-flex items-center gap-1 ${
+                      col.align === 'right' ? 'flex-row-reverse' : ''
+                    }`}
+                  >
                     {col.header}
-                    {col.sortable !== false && renderSortIcon(col.key)}
+                    {col.sortable !== false &&
+                      (sortKey === col.key ? (
+                        sortDir === 'asc' ? (
+                          <ChevronUp size={12} className="text-[var(--accent)]" />
+                        ) : (
+                          <ChevronDown size={12} className="text-[var(--accent)]" />
+                        )
+                      ) : (
+                        <ChevronUp size={12} className="text-[#C6CEE0]" />
+                      ))}
                   </span>
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {paged.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={columns.length}
-                  className="h-28 text-center text-sm text-[var(--muted)]"
-                >
-                  {emptyMessage}
-                </td>
-              </tr>
-            ) : (
-              paged.map((row) => (
+            {sorted.map((row) => {
+              const key = rowKey(row);
+              return (
                 <tr
-                  key={rowKey(row)}
-                  className={`h-12 border-b border-[var(--line)] last:border-b-0 transition-colors ${
-                    onRowClick
-                      ? 'cursor-pointer hover:bg-[var(--accent-soft)]'
-                      : 'hover:bg-[#FAFBFE]'
-                  }`}
+                  key={key}
                   onClick={() => onRowClick?.(row)}
+                  className={`h-12 border-b border-[var(--line)] last:border-b-0 row-rail ${
+                    activeKey === key
+                      ? 'bg-[var(--accent-soft)] row-rail-active'
+                      : zebra
+                        ? 'even:bg-[#FBFCFE]'
+                        : ''
+                  } ${onRowClick ? 'cursor-pointer hover:bg-[var(--accent-soft)]' : 'hover:bg-[#F7F9FD]'}`}
                 >
                   {columns.map((col) => (
                     <td
                       key={col.key}
-                      className={`px-4 text-[13px] text-[var(--ink)] ${
-                        col.align === 'right'
-                          ? 'text-right tabular-nums'
-                          : col.align === 'center'
-                          ? 'text-center'
-                          : 'text-left'
-                      }`}
+                      className={`px-4 text-[13px] text-[var(--ink)] ${alignClass(col.align)} ${
+                        col.align === 'right' ? 'tabular-nums' : ''
+                      } ${col.hideOnMobile ? 'hidden lg:table-cell' : ''}`}
                     >
                       {col.render
                         ? col.render(row)
-                        : ((row as Record<string, unknown>)[col.key] as React.ReactNode)}
+                        : ((row as Record<string, unknown>)[col.key] as ReactNode)}
                     </td>
                   ))}
                 </tr>
-              ))
-            )}
+              );
+            })}
           </tbody>
         </table>
       </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between px-5 py-3 border-t border-[var(--line)] text-xs text-[var(--slate)]">
-          <span className="tabular-nums">
-            {safePage * pageSize + 1}–
-            {Math.min((safePage + 1) * pageSize, sorted.length)} of{' '}
-            {sorted.length}
-          </span>
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-              disabled={safePage === 0}
-              className="w-8 h-8 inline-flex items-center justify-center rounded-[var(--r-sm)] border border-[var(--line)] bg-white hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-35 disabled:hover:border-[var(--line)] disabled:hover:text-[var(--slate)] transition-colors"
-            >
-              <ChevronLeft size={15} />
-            </button>
-            <span className="px-2 font-semibold text-[var(--ink)] tabular-nums">
-              {safePage + 1} / {totalPages}
-            </span>
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-              disabled={safePage >= totalPages - 1}
-              className="w-8 h-8 inline-flex items-center justify-center rounded-[var(--r-sm)] border border-[var(--line)] bg-white hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-35 disabled:hover:border-[var(--line)] disabled:hover:text-[var(--slate)] transition-colors"
-            >
-              <ChevronRight size={15} />
-            </button>
-          </div>
-        </div>
-      )}
+      {footer}
     </div>
   );
 }

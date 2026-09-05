@@ -1,229 +1,336 @@
-import { useEffect, useState } from 'react';
-import { Users, UserCheck, CalendarClock, Banknote, ArrowRight } from 'lucide-react';
+import { lazy, Suspense, useState } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  AlertTriangle,
+  ArrowRight,
+  CalendarCheck,
+  Clock3,
+  FileWarning,
+  MessageSquareWarning,
+  Receipt,
+  TrendingUp,
+  Wallet,
+} from 'lucide-react';
 import api from '../api';
-import type { DashboardStats } from '../types';
+import { useAsync } from '../lib/useApi';
+import { formatPeriod, humanise, money, num, percent } from '../lib/format';
 import { StatusBadge } from '../components/StatusBadge';
-import { useAuth } from '../auth/AuthContext';
+import { AttendanceMix } from '../components/charts';
+import {
+  Button,
+  ErrorState,
+  Field,
+  FilterBar,
+  KpiCard,
+  Section,
+  Select,
+  SkeletonCards,
+  StatTile,
+} from '../components/ui';
 
-/** Format INR currency */
-function formatINR(amount: number): string {
-  return '₹' + amount.toLocaleString('en-IN');
+// Recharts is the largest dependency in the bundle and this is the only screen
+// that plots anything, so it is fetched when the dashboard first renders.
+const DepartmentSalaryChart = lazy(() =>
+  import('../components/PayrollCharts').then((module) => ({
+    default: module.DepartmentSalaryChart,
+  })),
+);
+const NetTrendChart = lazy(() =>
+  import('../components/PayrollCharts').then((module) => ({ default: module.NetTrendChart })),
+);
+
+/**
+ * Shown while the chart chunk loads. A plain tinted block was invisible on a
+ * white card, so this draws bar-shaped placeholders that read as "a chart is
+ * arriving" rather than as an empty panel.
+ */
+function ChartFallback({ height }: { height: number }) {
+  return (
+    <div
+      className="flex flex-col justify-end gap-3 px-2"
+      style={{ height }}
+      role="status"
+      aria-label="Loading chart"
+    >
+      {[70, 45, 85, 55].map((width, index) => (
+        <div
+          key={index}
+          className="h-4 rounded-[4px] bg-[#E4E8F2] animate-pulse"
+          style={{ width: `${width}%`, animationDelay: `${index * 120}ms` }}
+        />
+      ))}
+    </div>
+  );
 }
 
-export function DashboardPage() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
+/**
+ * The payroll dashboard.
+ *
+ * Every number is read from `GET /dashboard`, and all three filters narrow all
+ * of them at once - nothing on this screen is computed client-side or filled
+ * with a placeholder.
+ */
+export function PayrollDashboard() {
+  const [period, setPeriod] = useState('');
+  const [departmentId, setDepartmentId] = useState('');
+  const [employeeType, setEmployeeType] = useState('');
 
-  useEffect(() => {
-    api
-      .getDashboardStats()
-      .then(setStats)
-      .finally(() => setLoading(false));
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64 text-sm text-[var(--slate)]">
-        Loading dashboard…
-      </div>
-    );
-  }
-
-  if (!stats) return null;
-
-  const statCards = [
-    {
-      label: 'Total Employees',
-      value: stats.totalEmployees,
-      icon: Users,
-      tile: 'tile-blue',
-      fmt: false,
-      to: '/employees',
-    },
-    {
-      label: 'Present Today',
-      value: stats.presentToday,
-      icon: UserCheck,
-      tile: 'tile-green',
-      fmt: false,
-      to: '/attendance',
-    },
-    {
-      label: 'Pending Leaves',
-      value: stats.pendingLeaves,
-      icon: CalendarClock,
-      tile: 'tile-amber',
-      fmt: false,
-      to: '/leaves',
-    },
-    {
-      label: 'Payroll (Net)',
-      value: stats.totalPayrollAmount,
-      icon: Banknote,
-      tile: 'tile-purple',
-      fmt: true,
-      to: '/payroll',
-    },
-  ];
-
-  const maxDeptCount = Math.max(
-    ...stats.departmentBreakdown.map((d) => d.count)
+  const filters = useAsync(() => api.dashboard.filters(), []);
+  const dashboard = useAsync(
+    () => api.dashboard.get({ period, departmentId, employeeType }),
+    [period, departmentId, employeeType],
   );
 
-  const firstName = user?.name?.split(' ')[0] ?? 'there';
+  const data = dashboard.data;
+  const attendance = data?.attendanceOverview;
 
   return (
-    <div className="space-y-6">
-      {/* ---------- Hero band ---------- */}
-      <div className="hero-accent px-8 py-9 md:px-10 md:py-10">
-        <div className="relative max-w-2xl">
-          <p className="text-xs font-semibold uppercase tracking-wider text-white/60">
-            {new Date().toLocaleDateString('en-IN', {
-              weekday: 'long',
-              day: 'numeric',
-              month: 'long',
-              year: 'numeric',
-            })}
+    <div className="animate-fade-in">
+      <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
+        <div>
+          <h1 className="page-title">Payroll dashboard</h1>
+          <p className="page-subtitle">
+            {data ? formatPeriod(data.period) : '—'}
           </p>
-          <h1 className="display-md mt-2">Welcome back, {firstName}</h1>
-          <p className="text-sm text-white/70 mt-3 leading-relaxed">
-            {stats.activeEmployees} of {stats.totalEmployees} people are active,
-            and this month&apos;s payroll is{' '}
-            <span className="font-semibold text-white">
-              {stats.currentPayrollStatus}
-            </span>
-            . Here&apos;s where everything stands.
-          </p>
-          <div className="flex flex-wrap gap-3 mt-7">
-            <Link to="/payroll" className="btn btn-on-accent">
-              Review payroll
-              <ArrowRight size={16} />
-            </Link>
-            <Link to="/employees" className="btn btn-outline-light">
-              View employees
-            </Link>
+        </div>
+        <Link to="/payroll/payruns/new" className="btn btn-primary">
+          <Wallet size={16} />
+          New payrun
+        </Link>
+      </div>
+
+      <FilterBar>
+        <Field label="Period" className="w-44">
+          <Select value={period} onChange={(event) => setPeriod(event.target.value)}>
+            <option value="">Latest with data</option>
+            {(filters.data?.periods ?? []).map((option) => (
+              <option key={option} value={option}>
+                {formatPeriod(option)}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        <Field label="Department" className="w-52">
+          <Select value={departmentId} onChange={(event) => setDepartmentId(event.target.value)}>
+            <option value="">All departments</option>
+            {(filters.data?.departments ?? []).map((department) => (
+              <option key={department.id} value={department.id}>
+                {department.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        <Field label="Employee type" className="w-44">
+          <Select value={employeeType} onChange={(event) => setEmployeeType(event.target.value)}>
+            <option value="">All types</option>
+            {(filters.data?.employeeTypes ?? []).map((type) => (
+              <option key={type} value={type}>
+                {humanise(type)}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        {(period || departmentId || employeeType) && (
+          <Button
+            size="sm"
+            onClick={() => {
+              setPeriod('');
+              setDepartmentId('');
+              setEmployeeType('');
+            }}
+          >
+            Clear filters
+          </Button>
+        )}
+
+        <span className="ml-auto text-[12px] text-[var(--muted)]">
+          {data ? `${data.periodStart} → ${data.periodEnd}` : ''}
+        </span>
+      </FilterBar>
+
+      {dashboard.error && <ErrorState message={dashboard.error} onRetry={dashboard.reload} />}
+
+      {dashboard.loading && !data && (
+        <div className="space-y-5">
+          <SkeletonCards count={6} />
+          <div className="grid gap-5 xl:grid-cols-2">
+            <div className="card p-5">
+              <div className="h-3.5 w-44 skeleton" />
+              <ChartFallback height={220} />
+            </div>
+            <div className="card p-5">
+              <div className="h-3.5 w-40 skeleton" />
+              <ChartFallback height={220} />
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* ---------- Stat Cards ---------- */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-        {statCards.map((card) => {
-          const Icon = card.icon;
-          return (
-            <Link
-              key={card.label}
-              to={card.to}
-              className="card card-hover p-5 block group"
-            >
-              <div className="flex items-start justify-between">
-                <span className={`icon-tile ${card.tile}`}>
-                  <Icon size={19} />
-                </span>
-                <ArrowRight
-                  size={16}
-                  className="text-[var(--muted)] opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all"
-                />
-              </div>
-              <p className="display-sm text-[var(--ink)] tabular-nums mt-5">
-                {card.fmt ? formatINR(card.value) : card.value}
-              </p>
-              <p className="text-[13px] font-medium text-[var(--slate)] mt-1">
-                {card.label}
-              </p>
-            </Link>
-          );
-        })}
-      </div>
-
-      {/* ---------- Department Breakdown + Recent Hires ---------- */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-        {/* Department Breakdown */}
-        <div className="card">
-          <div className="card-head">
-            <h2 className="card-title">Department Breakdown</h2>
-            <span className="text-xs text-[var(--muted)] tabular-nums">
-              {stats.departmentBreakdown.length} departments
-            </span>
+      {data && (
+        <div className={dashboard.loading ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 mb-5">
+            <KpiCard
+              label="Total net paid"
+              value={money(data.kpis.totalNetPaid)}
+              icon={<Wallet size={17} />}
+              tone="blue"
+            />
+            <KpiCard
+              label="Payslips generated"
+              value={num(data.kpis.payslipsGenerated, 0)}
+              sublabel={`Average ${money(data.kpis.averageSalary)} net`}
+              icon={<Receipt size={17} />}
+              tone="purple"
+            />
+            <KpiCard
+              label="Average net salary"
+              value={money(data.kpis.averageSalary)}
+              icon={<TrendingUp size={17} />}
+              tone="green"
+            />
+            <KpiCard
+              label="Approved time off"
+              value={`${num(data.kpis.approvedTimeOffDays)} days`}
+              icon={<CalendarCheck size={17} />}
+              tone="amber"
+            />
+            <KpiCard
+              label="Attendance health"
+              value={percent(data.kpis.attendanceHealth)}
+              icon={<Clock3 size={17} />}
+              tone={data.kpis.attendanceHealth >= 0.9 ? 'green' : 'amber'}
+              progress={data.kpis.attendanceHealth}
+            />
+            <KpiCard
+              label="Open grievances"
+              value={num(data.kpis.openGrievances, 0)}
+              sublabel="Open or under review"
+              icon={<MessageSquareWarning size={17} />}
+              tone="pink"
+            />
           </div>
-          <div className="p-5 space-y-4">
-            {stats.departmentBreakdown.map((dept) => (
-              <div key={dept.department} className="flex items-center gap-4">
-                <span className="text-[13px] font-medium text-[var(--slate)] w-28 flex-shrink-0 truncate">
-                  {dept.department}
-                </span>
-                <div className="flex-1 h-2.5 bg-[#EDF0F7] rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-[var(--accent)] rounded-full transition-[width] duration-500"
-                    style={{
-                      width: `${(dept.count / maxDeptCount) * 100}%`,
+
+          <div className="grid gap-5 xl:grid-cols-2 mb-5">
+            <Section title="Salary cost by department">
+              {data.salaryByDepartment.length === 0 ? (
+                <p className="text-sm text-[var(--muted)] py-8 text-center">
+                  No payslips match these filters.
+                </p>
+              ) : (
+                <Suspense fallback={<ChartFallback height={220} />}>
+                  <DepartmentSalaryChart data={data.salaryByDepartment} />
+                </Suspense>
+              )}
+            </Section>
+
+            <Section title="Monthly net trend">
+              <Suspense fallback={<ChartFallback height={250} />}>
+                <NetTrendChart data={data.monthlyNetTrend} />
+              </Suspense>
+            </Section>
+          </div>
+
+          <div className="grid gap-5 xl:grid-cols-[1.1fr_1fr]">
+            <Section title="Attendance overview">
+              {attendance && (
+                <>
+                  <AttendanceMix
+                    counts={{
+                      present: attendance.present,
+                      late: attendance.late,
+                      halfDay: attendance.halfDay,
+                      absent: attendance.absent,
                     }}
                   />
-                </div>
-                <span className="text-[13px] font-semibold text-[var(--ink)] tabular-nums w-6 text-right">
-                  {dept.count}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
 
-        {/* Recent Hires */}
-        <div className="card overflow-hidden">
-          <div className="card-head">
-            <h2 className="card-title">Recent Hires</h2>
-            <Link
-              to="/employees"
-              className="text-xs font-semibold text-[var(--accent)] hover:underline inline-flex items-center gap-1"
+                  <div className="grid grid-cols-3 gap-4 mt-6 pt-5 border-t border-[var(--line)]">
+                    <StatTile
+                      label="Overtime hours"
+                      value={num(attendance.overtimeHours)}
+                      tone="purple"
+                    />
+                    <StatTile
+                      label="Missing checkouts"
+                      value={num(attendance.missingCheckouts, 0)}
+                      tone={attendance.missingCheckouts > 0 ? 'pink' : 'green'}
+                    />
+                    <StatTile
+                      label="Manual edits"
+                      value={num(attendance.manualEdits, 0)}
+                      tone="amber"
+                    />
+                  </div>
+                </>
+              )}
+            </Section>
+
+            <Section
+              title="Items requiring attention"
+              description={`${data.alerts.length} open item${data.alerts.length === 1 ? '' : 's'}`}
+              bodyClassName="p-0"
+              actions={
+                <Link
+                  to="/payroll/payslips"
+                  className="text-[12px] font-semibold text-[var(--accent)] hover:underline inline-flex items-center gap-1"
+                >
+                  All payslips <ArrowRight size={13} />
+                </Link>
+              }
             >
-              View all <ArrowRight size={13} />
-            </Link>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-[#F7F9FD]">
-                  {['Name', 'Department', 'Joined', 'Status'].map((h) => (
-                    <th
-                      key={h}
-                      className="h-11 px-4 text-left text-[11px] font-bold tracking-wider uppercase text-[var(--slate)] border-b border-[var(--line)]"
-                    >
-                      {h}
-                    </th>
+              {data.alerts.length === 0 ? (
+                <p className="text-sm text-[var(--muted)] py-10 text-center">
+                  Nothing needs attention in this period.
+                </p>
+              ) : (
+                <ul className="divide-y divide-[var(--line)] max-h-[360px] overflow-y-auto">
+                  {data.alerts.map((alert, index) => (
+                    <li key={`${alert.type}-${index}`} className="flex items-start gap-3 px-5 py-3.5">
+                      <span
+                        className={`icon-tile w-8 h-8 mt-0.5 ${
+                          alert.severity === 'HIGH'
+                            ? 'tile-pink'
+                            : alert.severity === 'MEDIUM'
+                              ? 'tile-amber'
+                              : 'tile-blue'
+                        }`}
+                      >
+                        {alert.severity === 'HIGH' ? (
+                          <AlertTriangle size={15} />
+                        ) : (
+                          <FileWarning size={15} />
+                        )}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <StatusBadge status={alert.severity} size="sm" />
+                          <span className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wide">
+                            {humanise(alert.type)}
+                          </span>
+                        </div>
+                        <p className="text-[13px] text-[var(--ink)] mt-1 leading-snug">
+                          {alert.message}
+                        </p>
+                      </div>
+                      {alert.payslipId && (
+                        <Link
+                          to={`/payroll/payslips/${alert.payslipId}`}
+                          className="text-[var(--muted)] hover:text-[var(--accent)] transition-colors mt-1"
+                          title="Open payslip"
+                        >
+                          <ArrowRight size={15} />
+                        </Link>
+                      )}
+                    </li>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {stats.recentHires.map((emp) => (
-                  <tr
-                    key={emp.id}
-                    className="h-12 border-b border-[var(--line)] last:border-b-0 hover:bg-[#FAFBFE] transition-colors"
-                  >
-                    <td className="px-4 text-[13px] font-medium text-[var(--ink)] whitespace-nowrap">
-                      {emp.firstName} {emp.lastName}
-                    </td>
-                    <td className="px-4 text-[13px] text-[var(--slate)] whitespace-nowrap">
-                      {emp.department}
-                    </td>
-                    <td className="px-4 text-[13px] text-[var(--slate)] tabular-nums whitespace-nowrap">
-                      {new Date(emp.dateOfJoining).toLocaleDateString('en-IN', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                      })}
-                    </td>
-                    <td className="px-4">
-                      <StatusBadge status={emp.status} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                </ul>
+              )}
+            </Section>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
