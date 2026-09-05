@@ -58,7 +58,7 @@ export function LeavesPage() {
       : leaves.filter((l) => l.status === activeTab);
 
   const columns: Column<LeaveRequest>[] = [
-    { key: 'employeeId', header: 'Emp ID', width: '90px' },
+    { key: 'employeeId', header: 'Emp ID', width: '110px' },
     { key: 'employeeName', header: 'Name' },
     {
       key: 'leaveType',
@@ -103,28 +103,28 @@ export function LeavesPage() {
             sortable: false,
             render: (row: LeaveRequest) =>
               row.status === 'pending' ? (
-                <div className="flex gap-1">
+                <div className="flex gap-1.5">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       handleApprove(row.id);
                     }}
-                    className="inline-flex items-center gap-1 px-2 h-6 text-[11px] font-medium bg-emerald-50 text-[var(--accent)] rounded hover:bg-emerald-100"
+                    className="btn btn-xs btn-success-tonal"
                   >
-                    <Check size={11} /> Approve
+                    <Check size={12} /> Approve
                   </button>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       handleReject(row.id);
                     }}
-                    className="inline-flex items-center gap-1 px-2 h-6 text-[11px] font-medium bg-red-50 text-[var(--danger)] rounded hover:bg-red-100"
+                    className="btn btn-xs btn-danger-tonal"
                   >
-                    <X size={11} /> Reject
+                    <X size={12} /> Reject
                   </button>
                 </div>
               ) : (
-                <span className="text-xs text-[var(--slate)]">—</span>
+                <span className="text-xs text-[var(--muted)]">—</span>
               ),
           } as Column<LeaveRequest>,
         ]
@@ -140,32 +140,35 @@ export function LeavesPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-[var(--ink)]">Leaves</h1>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="page-title">Leaves</h1>
+          <p className="page-subtitle">
+            Requests waiting on you, and everything already decided.
+          </p>
+        </div>
         <Can module="leave" action="write">
-          <button className="inline-flex items-center gap-1.5 px-3 h-8 bg-[var(--accent)] text-white text-sm font-medium rounded hover:opacity-90 transition-opacity">
-            <Plus size={14} />
+          <button className="btn btn-primary">
+            <Plus size={16} />
             Apply Leave
           </button>
         </Can>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-[var(--line)]">
+      <div className="flex flex-wrap gap-1.5">
         {TABS.map((tab) => (
           <button
             key={tab.value}
             onClick={() => setActiveTab(tab.value)}
-            className={`px-3 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
-              activeTab === tab.value
-                ? 'text-[var(--accent)] border-b-[var(--accent)]'
-                : 'text-[var(--slate)] border-b-transparent hover:text-[var(--ink)]'
+            className={`tab-pill ${
+              activeTab === tab.value ? 'tab-pill-active' : ''
             }`}
           >
             {tab.label}
-            <span className="ml-1.5 text-xs tabular-nums">
+            <span className="tab-count">
               {tab.value === 'all'
                 ? leaves.length
                 : leaves.filter((l) => l.status === tab.value).length}

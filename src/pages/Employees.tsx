@@ -18,7 +18,7 @@ function formatINR(amount: number): string {
 }
 
 const columns: Column<Employee>[] = [
-  { key: 'employeeId', header: 'ID',         width: '90px' },
+  { key: 'employeeId', header: 'ID',         width: '110px' },
   {
     key: 'firstName',
     header: 'Name',
@@ -79,32 +79,35 @@ export function EmployeesPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-[var(--ink)]">Employees</h1>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="page-title">Employees</h1>
+          <p className="page-subtitle">
+            Everyone on the payroll, their details and their current standing.
+          </p>
+        </div>
         <Can module="employees" action="write">
-          <button className="inline-flex items-center gap-1.5 px-3 h-8 bg-[var(--accent)] text-white text-sm font-medium rounded hover:opacity-90 transition-opacity">
-            <Plus size={14} />
+          <button className="btn btn-primary">
+            <Plus size={16} />
             Add Employee
           </button>
         </Can>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-[var(--line)]">
+      <div className="flex flex-wrap gap-1.5">
         {TABS.map((tab) => (
           <button
             key={tab.value}
             onClick={() => setActiveTab(tab.value)}
-            className={`px-3 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
-              activeTab === tab.value
-                ? 'text-[var(--accent)] border-b-[var(--accent)]'
-                : 'text-[var(--slate)] border-b-transparent hover:text-[var(--ink)]'
+            className={`tab-pill ${
+              activeTab === tab.value ? 'tab-pill-active' : ''
             }`}
           >
             {tab.label}
-            <span className="ml-1.5 text-xs tabular-nums">
+            <span className="tab-count">
               {tab.value === 'all'
                 ? employees.length
                 : employees.filter((e) => e.status === tab.value).length}

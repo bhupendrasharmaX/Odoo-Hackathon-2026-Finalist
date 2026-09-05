@@ -1,12 +1,12 @@
 import { Outlet } from 'react-router-dom';
-import { Sidebar } from '../components/Sidebar';
+import { Topbar } from '../components/Topbar';
 
 export function AppLayout() {
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar />
-      <main className="flex-1 overflow-y-auto bg-[var(--canvas)]">
-        <div className="p-6">
+    <div className="min-h-screen flex flex-col bg-[var(--canvas)]">
+      <Topbar />
+      <main className="flex-1">
+        <div className="max-w-[1400px] mx-auto px-6 lg:px-8 py-8">
           <Outlet />
         </div>
       </main>
