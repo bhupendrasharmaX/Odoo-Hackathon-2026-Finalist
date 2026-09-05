@@ -96,7 +96,7 @@ export function DataTable<T extends object>({
 
   const renderSortIcon = (key: string) => {
     if (sortKey !== key)
-      return <ChevronUp size={12} className="text-[var(--line)]" />;
+      return <ChevronUp size={12} className="text-[#C6CEE0]" />;
     return sortDir === 'asc' ? (
       <ChevronUp size={12} className="text-[var(--accent)]" />
     ) : (
@@ -105,24 +105,24 @@ export function DataTable<T extends object>({
   };
 
   return (
-    <div className="bg-white border border-[var(--line)] rounded overflow-hidden">
+    <div className="card overflow-hidden">
       {/* Search bar */}
       {searchable && (
-        <div className="px-4 py-2 border-b border-[var(--line)]">
+        <div className="px-5 py-3.5 border-b border-[var(--line)]">
           <div className="relative max-w-xs">
             <Search
-              size={14}
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--slate)]"
+              size={15}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)] pointer-events-none"
             />
             <input
               type="text"
-              placeholder="Search..."
+              placeholder="Search…"
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
                 setPage(0);
               }}
-              className="w-full pl-8 pr-3 py-1.5 text-sm border border-[var(--line)] rounded bg-[var(--canvas)] text-[var(--ink)] placeholder:text-[var(--slate)] focus:outline-none focus:border-[var(--accent)]"
+              className="input h-9 pl-9 bg-[var(--canvas)]"
             />
           </div>
         </div>
@@ -132,13 +132,13 @@ export function DataTable<T extends object>({
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="bg-[#F8FAFC]">
+            <tr className="bg-[#F7F9FD]">
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className={`h-10 px-3 text-[11px] font-semibold tracking-wider uppercase text-[var(--slate)] border-b border-[var(--line)] select-none ${
+                  className={`h-11 px-4 text-[11px] font-bold tracking-wider uppercase text-[var(--slate)] border-b border-[var(--line)] select-none ${
                     col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'
-                  } ${col.sortable !== false ? 'cursor-pointer hover:text-[var(--ink)]' : ''}`}
+                  } ${col.sortable !== false ? 'cursor-pointer hover:text-[var(--accent)]' : ''}`}
                   style={{ width: col.width }}
                   onClick={() => col.sortable !== false && handleSort(col.key)}
                 >
@@ -155,7 +155,7 @@ export function DataTable<T extends object>({
               <tr>
                 <td
                   colSpan={columns.length}
-                  className="h-20 text-center text-sm text-[var(--slate)]"
+                  className="h-28 text-center text-sm text-[var(--muted)]"
                 >
                   {emptyMessage}
                 </td>
@@ -164,17 +164,17 @@ export function DataTable<T extends object>({
               paged.map((row) => (
                 <tr
                   key={rowKey(row)}
-                  className={`h-10 border-b border-[var(--line)] last:border-b-0 ${
+                  className={`h-12 border-b border-[var(--line)] last:border-b-0 transition-colors ${
                     onRowClick
-                      ? 'cursor-pointer hover:bg-[var(--canvas)]'
-                      : ''
+                      ? 'cursor-pointer hover:bg-[var(--accent-soft)]'
+                      : 'hover:bg-[#FAFBFE]'
                   }`}
                   onClick={() => onRowClick?.(row)}
                 >
                   {columns.map((col) => (
                     <td
                       key={col.key}
-                      className={`px-3 text-[13px] text-[var(--ink)] ${
+                      className={`px-4 text-[13px] text-[var(--ink)] ${
                         col.align === 'right'
                           ? 'text-right tabular-nums'
                           : col.align === 'center'
@@ -196,29 +196,29 @@ export function DataTable<T extends object>({
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between px-4 py-2 border-t border-[var(--line)] text-xs text-[var(--slate)]">
-          <span>
+        <div className="flex items-center justify-between px-5 py-3 border-t border-[var(--line)] text-xs text-[var(--slate)]">
+          <span className="tabular-nums">
             {safePage * pageSize + 1}–
             {Math.min((safePage + 1) * pageSize, sorted.length)} of{' '}
             {sorted.length}
           </span>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             <button
               onClick={() => setPage((p) => Math.max(0, p - 1))}
               disabled={safePage === 0}
-              className="p-1 rounded hover:bg-[var(--canvas)] disabled:opacity-30"
+              className="w-8 h-8 inline-flex items-center justify-center rounded-[var(--r-sm)] border border-[var(--line)] bg-white hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-35 disabled:hover:border-[var(--line)] disabled:hover:text-[var(--slate)] transition-colors"
             >
-              <ChevronLeft size={14} />
+              <ChevronLeft size={15} />
             </button>
-            <span className="px-2">
+            <span className="px-2 font-semibold text-[var(--ink)] tabular-nums">
               {safePage + 1} / {totalPages}
             </span>
             <button
               onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
               disabled={safePage >= totalPages - 1}
-              className="p-1 rounded hover:bg-[var(--canvas)] disabled:opacity-30"
+              className="w-8 h-8 inline-flex items-center justify-center rounded-[var(--r-sm)] border border-[var(--line)] bg-white hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-35 disabled:hover:border-[var(--line)] disabled:hover:text-[var(--slate)] transition-colors"
             >
-              <ChevronRight size={14} />
+              <ChevronRight size={15} />
             </button>
           </div>
         </div>
