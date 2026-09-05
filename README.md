@@ -271,5 +271,5 @@ This project was built for the **Odoo Hackathon 2026**. All rights reserved.
 ---
 
 <p align="center">
-  Built with ❤️ by <strong>Team PeoplePay360</strong>
+  Built with ❤️<strong>PeoplePay360</strong>
 </p>
