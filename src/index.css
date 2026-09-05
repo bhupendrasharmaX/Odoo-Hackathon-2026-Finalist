@@ -1,0 +1,128 @@
+@import "tailwindcss";
+
+/* ============================================================
+   PeoplePay360 — Design Tokens
+   ============================================================ */
+
+@theme {
+  --color-ink: #16202A;
+  --color-slate: #5B6B7B;
+  --color-paper: #FFFFFF;
+  --color-canvas: #F5F7F9;
+  --color-line: #E1E7EC;
+  --color-accent: #1F6F5C;
+  --color-accent-light: #60C5A4;
+  --color-warning: #B7791F;
+  --color-danger: #B23A48;
+  --color-sidebar-bg: #16202A;
+}
+
+:root {
+  --ink: #16202A;
+  --slate: #5B6B7B;
+  --paper: #FFFFFF;
+  --canvas: #F5F7F9;
+  --line: #E1E7EC;
+  --accent: #1F6F5C;
+  --accent-light: #60C5A4;
+  --warning: #B7791F;
+  --danger: #B23A48;
+  --sidebar-bg: #16202A;
+}
+
+/* ============================================================
+   Base
+   ============================================================ */
+
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: var(--canvas);
+    color: var(--ink);
+    line-height: 1.5;
+  }
+}
+
+/* ============================================================
+   Typography Scale: 12 / 14 / 16 / 20 / 28
+   ============================================================ */
+.text-xs   { font-size: 12px; line-height: 16px; }
+.text-sm   { font-size: 14px; line-height: 20px; }
+.text-base { font-size: 16px; line-height: 24px; }
+.text-lg   { font-size: 20px; line-height: 28px; }
+.text-2xl  { font-size: 28px; line-height: 36px; }
+
+/* ============================================================
+   Tabular Numerals — MANDATORY on money & hour values
+   ============================================================ */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   Money Utilities
+   ============================================================ */
+.money {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.money-negative {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--danger);
+}
+
+/* ============================================================
+   Dense Table Rows (40px)
+   ============================================================ */
+.table-dense tr {
+  height: 40px;
+}
+
+.table-dense td,
+.table-dense th {
+  padding-left: 12px;
+  padding-right: 12px;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   Scrollbar
+   ============================================================ */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--slate);
+}
+
+/* ============================================================
+   Focus ring override — use accent, no glow
+   ============================================================ */
+*:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
