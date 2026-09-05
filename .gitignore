@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Secrets. server/.env holds DATABASE_URL and JWT_SECRET - never commit it.
+.env
+.env.*
+!.env.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
