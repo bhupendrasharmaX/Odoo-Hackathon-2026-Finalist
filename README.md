@@ -18,7 +18,7 @@
 
 ## Overview
 
-**PeoplePay360** is a full-stack HR & Payroll management platform where teams can run headcount, attendance, leave, and payroll — all without a single spreadsheet changing hands. Built for the **Odoo Hackathon 2026**, it features a modern React frontend with role-based access control and a Node.js/Express backend with Prisma ORM.
+**PeoplePay360** is a full-stack HR & Payroll management platform where teams can run headcount, attendance, leave, and payroll all without a single spreadsheet changing hands. Built for the **Odoo Hackathon 2026**, it features a modern React frontend with role-based access control and a Node.js/Express backend with Prisma ORM.
 
 ---
 
@@ -26,7 +26,7 @@
 
 | Module | Description |
 |---|---|
-| **Dashboard** | At-a-glance stats — total employees, present today, pending leaves, net payroll — with department breakdown and recent hires |
+| **Dashboard** | At-a-glance stats total employees, present today, pending leaves, net payroll with department breakdown and recent hires |
 | **Employees** | Full employee directory with search, status tracking (active / inactive / terminated / on leave), and CRUD operations |
 | **Payroll** | Monthly payroll runs with detailed payslips (basic, HRA, conveyance, PF, ESI, tax), approval/reject workflow |
 | **Attendance** | Daily attendance log with check-in/out times, hours worked, and status summary (present, absent, half day, leave, holiday, weekend) |
@@ -35,12 +35,12 @@
 
 ### Additional Highlights
 
-- 🔐 **Role-Based Access Control (RBAC)** — 5 roles with granular permission matrix
-- 🧩 **Declarative Permission Gates** — `<Can>` component and `useCan()` hook for UX-level permission hiding
-- 📱 **Fully Responsive** — Desktop top-nav with mobile hamburger drawer
-- 🎨 **Premium UI** — Custom design system with CSS variables, glassmorphism accents, smooth transitions
-- 🔄 **Mock API Layer** — Runs entirely client-side with realistic mock data for demo purposes
-- ⚡ **Hot Module Replacement** — Instant feedback during development via Vite
+- 🔐 **Role-Based Access Control (RBAC)** - 5 roles with granular permission matrix
+- 🧩 **Declarative Permission Gates** - `<Can>` component and `useCan()` hook for UX-level permission hiding
+- 📱 **Fully Responsive** - Desktop top-nav with mobile hamburger drawer
+- 🎨 **Premium UI** - Custom design system with CSS variables, glassmorphism accents, smooth transitions
+- 🔄 **Mock API Layer** - Runs entirely client-side with realistic mock data for demo purposes
+- ⚡ **Hot Module Replacement** - Instant feedback during development via Vite
 
 ---
 
