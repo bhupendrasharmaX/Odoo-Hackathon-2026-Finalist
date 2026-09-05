@@ -1,41 +1,72 @@
 import { Router } from 'express';
-import { ROLE_GROUPS } from '../../config/roles';
+import { z } from 'zod';
+import { ROLES, ROLE_GROUPS } from '../../config/roles';
 import { asyncHandler } from '../../http/asyncHandler';
-import { notImplemented } from '../../http/errors';
+import { sendCreated, sendData, sendList } from '../../http/envelope';
+import { unauthorized } from '../../http/errors';
+import { buildMeta, readPageParams } from '../../http/pagination';
 import { requireAuth } from '../../middleware/requireAuth';
 import { requireRole } from '../../middleware/requireRole';
+import { validate } from '../../middleware/validate';
+import { changeRole, createUser, listUsers } from './users.service';
 
-/**
- * ADMIN only, for every route.
- *
- * TODO (users.service.ts):
- *   listUsers / createUser / changeRole
- *
- * Hard rule from the contract: NOBODY may change their own role. Reject with
- * 403 even when the caller is ADMIN and the target id is themselves - that
- * check belongs in the service, since it compares req.user.userId to :id.
- */
 export const usersRouter = Router();
 
+// The whole /users surface is ADMIN-only.
 usersRouter.use(requireAuth, requireRole(...ROLE_GROUPS.ADMIN_ONLY));
+
+const roleEnum = z.enum(ROLES);
+
+const listQuery = z.object({
+  search: z.string().trim().min(1).optional(),
+  role: roleEnum.optional(),
+  page: z.string().optional(),
+  limit: z.string().optional(),
+});
 
 usersRouter.get(
   '/',
-  asyncHandler(async () => {
-    throw notImplemented('GET /users');
+  validate({ query: listQuery }),
+  asyncHandler(async (req, res) => {
+    const page = readPageParams(req);
+    const { data, total } = await listUsers(
+      {
+        search: req.query.search as string | undefined,
+        role: req.query.role as never,
+      },
+      page,
+    );
+    sendList(res, data, buildMeta(page, total));
   }),
 );
 
+const createBody = z.object({
+  email: z.string().email('Enter a valid email address'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+  name: z.string().trim().min(1, 'Name is required'),
+  role: roleEnum,
+  employeeId: z.string().trim().min(1).nullish(),
+});
+
 usersRouter.post(
   '/',
-  asyncHandler(async () => {
-    throw notImplemented('POST /users');
+  validate({ body: createBody }),
+  asyncHandler(async (req, res) => {
+    if (!req.user) throw unauthorized();
+    const created = await createUser(req.body, req.user.userId);
+    sendCreated(res, created, 'User created');
   }),
 );
 
 usersRouter.patch(
   '/:id/role',
-  asyncHandler(async () => {
-    throw notImplemented('PATCH /users/:id/role');
+  validate({
+    params: z.object({ id: z.string().min(1) }),
+    body: z.object({ role: roleEnum }),
+  }),
+  asyncHandler(async (req, res) => {
+    if (!req.user) throw unauthorized();
+    const updated = await changeRole(req.params.id!, req.body.role, req.user.userId);
+    sendData(res, updated, 'Role updated');
   }),
 );

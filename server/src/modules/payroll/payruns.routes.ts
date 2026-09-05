@@ -1,93 +1,133 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { ROLE_GROUPS } from '../../config/roles';
 import { asyncHandler } from '../../http/asyncHandler';
-import { notImplemented } from '../../http/errors';
+import { sendCreated, sendData, sendList } from '../../http/envelope';
+import { unauthorized } from '../../http/errors';
+import { buildMeta, readPageParams } from '../../http/pagination';
 import { requireAuth } from '../../middleware/requireAuth';
 import { requireRole } from '../../middleware/requireRole';
+import { validate } from '../../middleware/validate';
+import {
+  computePayrun,
+  createPayrun,
+  eligibleEmployees,
+  getPayrun,
+  listPayruns,
+  markPayrunPaid,
+  sendPayslips,
+  validatePayrun,
+} from './payruns.service';
 
 /**
  * Payruns. HR_MANAGER gets 403 on every route here - that is THE WALL, and it
  * is enforced by the guard below rather than by hiding a menu item.
- *
- * TODO (payruns.service.ts):
- *   listPayruns / getPayrun
- *   eligibleEmployees({ salaryStructureId, periodStart, periodEnd })
- *     -> employees with a contract overlapping the period, each annotated with
- *        hasBankAccount, alreadyHasPayslipForPeriod, contractCount.
- *        CREATES NOTHING - this is wizard step 2, a preview only.
- *   createPayrun(...)  -> Payrun DRAFT + one DRAFT Payslip per selected employee
- *   compute(id)        -> run the salary engine; MUST BE IDEMPOTENT
- *                         (delete-then-insert lines, never append)
- *   validate(id)       -> only from COMPUTED; 409 if any payslip carries an
- *                         unresolved HIGH-severity warning
- *   markPaid(id)       -> only from VALIDATED; after PAID everything is
- *                         read-only and further mutation returns 409
- *   sendPayslips(id)   -> render each PDF and email it; with no SMTP
- *                         configured, log the send and still record it as sent
- *                         so the demo works offline
- *
- * compute / validate / markPaid each write an AuditLog row
- * { userId, action, entityType, entityId, changes }.
  */
 export const payrunsRouter = Router();
 
 payrunsRouter.use(requireAuth, requireRole(...ROLE_GROUPS.PAYROLL));
 
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use a YYYY-MM-DD date');
+
 payrunsRouter.get(
   '/',
-  asyncHandler(async () => {
-    throw notImplemented('GET /payruns');
+  validate({
+    query: z.object({
+      status: z.enum(['DRAFT', 'COMPUTED', 'VALIDATED', 'PAID', 'CANCELLED']).optional(),
+      period: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+      page: z.string().optional(),
+      limit: z.string().optional(),
+    }),
+  }),
+  asyncHandler(async (req, res) => {
+    const page = readPageParams(req);
+    const { data, total } = await listPayruns(
+      {
+        status: req.query.status as string | undefined,
+        period: req.query.period as string | undefined,
+      },
+      page,
+    );
+    sendList(res, data, buildMeta(page, total));
   }),
 );
 
-// Wizard step 2 preview. Declared before the parameterised route so the
-// literal path wins the match.
+/**
+ * Wizard step 2 preview. Declared before the parameterised route so the
+ * literal path wins the match.
+ *
+ * CREATES NOTHING. The 200 here is deliberate rather than a 201: no resource
+ * came into existence, this is a computed preview of what would be created.
+ */
 payrunsRouter.post(
   '/eligible-employees',
-  asyncHandler(async () => {
-    throw notImplemented('POST /payruns/eligible-employees');
+  validate({
+    body: z.object({
+      salaryStructureId: z.string().trim().min(1, 'Choose a salary structure'),
+      periodStart: isoDate,
+      periodEnd: isoDate,
+    }),
+  }),
+  asyncHandler(async (req, res) => {
+    sendData(res, await eligibleEmployees(req.body));
   }),
 );
 
 // Wizard final submit - the first call that actually creates a record.
 payrunsRouter.post(
   '/',
-  asyncHandler(async () => {
-    throw notImplemented('POST /payruns');
+  validate({
+    body: z.object({
+      name: z.string().trim().min(1, 'Name this payrun').max(150),
+      salaryStructureId: z.string().trim().min(1, 'Choose a salary structure'),
+      periodStart: isoDate,
+      periodEnd: isoDate,
+      employeeIds: z.array(z.string().trim().min(1)).min(1, 'Select at least one employee'),
+    }),
+  }),
+  asyncHandler(async (req, res) => {
+    if (!req.user) throw unauthorized();
+    sendCreated(res, await createPayrun(req.body, req.user.userId), 'Payrun created');
   }),
 );
 
 payrunsRouter.get(
   '/:id',
-  asyncHandler(async () => {
-    throw notImplemented('GET /payruns/:id');
+  asyncHandler(async (req, res) => {
+    sendData(res, await getPayrun(req.params.id!));
   }),
 );
 
 payrunsRouter.post(
   '/:id/compute',
-  asyncHandler(async () => {
-    throw notImplemented('POST /payruns/:id/compute');
+  asyncHandler(async (req, res) => {
+    if (!req.user) throw unauthorized();
+    const result = await computePayrun(req.params.id!, req.user.userId);
+    sendData(res, result, `Computed ${result.computed} payslip(s)`);
   }),
 );
 
 payrunsRouter.post(
   '/:id/validate',
-  asyncHandler(async () => {
-    throw notImplemented('POST /payruns/:id/validate');
+  asyncHandler(async (req, res) => {
+    if (!req.user) throw unauthorized();
+    sendData(res, await validatePayrun(req.params.id!, req.user.userId), 'Payrun validated');
   }),
 );
 
 payrunsRouter.post(
   '/:id/mark-paid',
-  asyncHandler(async () => {
-    throw notImplemented('POST /payruns/:id/mark-paid');
+  asyncHandler(async (req, res) => {
+    if (!req.user) throw unauthorized();
+    sendData(res, await markPayrunPaid(req.params.id!, req.user.userId), 'Payrun marked as paid');
   }),
 );
 
 payrunsRouter.post(
   '/:id/send-payslips',
-  asyncHandler(async () => {
-    throw notImplemented('POST /payruns/:id/send-payslips');
+  asyncHandler(async (req, res) => {
+    if (!req.user) throw unauthorized();
+    const result = await sendPayslips(req.params.id!, req.user.userId);
+    sendData(res, result, `Sent ${result.sent} of ${result.attempted} payslip(s)`);
   }),
 );

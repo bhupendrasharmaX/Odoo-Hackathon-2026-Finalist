@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import { ZodError } from 'zod';
 import { env } from '../config/env';
+import { FormulaError } from '../core/formula';
 import { AppError, ERROR_STATUS, type ErrorCode } from '../http/errors';
 import { sendError } from '../http/envelope';
 import { logger } from '../lib/logger';
@@ -53,6 +54,22 @@ function normalise(error: unknown): Normalised {
         path: issue.path.join('.') || '(root)',
         message: issue.message,
       })),
+      unexpected: false,
+    };
+  }
+
+  /**
+   * A rejected salary formula is bad user input, not a server fault. The
+   * tokeniser in core/formula.ts already refused it with a precise message -
+   * this maps that to 422 so the frontend renders it on the rule form instead
+   * of showing a generic "something went wrong".
+   */
+  if (error instanceof FormulaError) {
+    return {
+      code: 'VALIDATION_ERROR',
+      status: ERROR_STATUS.VALIDATION_ERROR,
+      message: error.message,
+      details: { formula: error.formula },
       unexpected: false,
     };
   }
