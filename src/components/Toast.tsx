@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
-import { X } from 'lucide-react';
+import { X, CheckCircle2, XCircle, AlertTriangle, Info } from 'lucide-react';
 
 // --- Types ---
 type ToastType = 'success' | 'error' | 'warning' | 'info';
@@ -54,18 +54,25 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 }
 
 // --- Container ---
-const TYPE_STYLES: Record<ToastType, string> = {
-  success: 'border-l-[3px] border-l-[var(--accent)]',
-  error:   'border-l-[3px] border-l-[var(--danger)]',
-  warning: 'border-l-[3px] border-l-[var(--warning)]',
-  info:    'border-l-[3px] border-l-[var(--accent)]',
-};
-
-const TYPE_DOT: Record<ToastType, string> = {
-  success: 'bg-[var(--accent)]',
+const TYPE_BAR: Record<ToastType, string> = {
+  success: 'bg-[var(--success)]',
   error:   'bg-[var(--danger)]',
   warning: 'bg-[var(--warning)]',
   info:    'bg-[var(--accent)]',
+};
+
+const TYPE_TILE: Record<ToastType, string> = {
+  success: 'tile-green',
+  error:   'tile-pink',
+  warning: 'tile-amber',
+  info:    'tile-blue',
+};
+
+const TYPE_ICON: Record<ToastType, typeof CheckCircle2> = {
+  success: CheckCircle2,
+  error:   XCircle,
+  warning: AlertTriangle,
+  info:    Info,
 };
 
 function ToastContainer({
@@ -78,27 +85,37 @@ function ToastContainer({
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 w-[360px]">
-      {toasts.map((t) => (
-        <div
-          key={t.id}
-          className={`bg-white border border-[var(--line)] rounded ${TYPE_STYLES[t.type]} px-4 py-3 flex items-start gap-3`}
-        >
-          <span className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${TYPE_DOT[t.type]}`} />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-[var(--ink)]">{t.title}</p>
-            {t.message && (
-              <p className="text-xs text-[var(--slate)] mt-0.5">{t.message}</p>
-            )}
-          </div>
-          <button
-            onClick={() => onDismiss(t.id)}
-            className="text-[var(--slate)] hover:text-[var(--ink)] flex-shrink-0"
+    <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3 w-[380px]">
+      {toasts.map((t) => {
+        const Icon = TYPE_ICON[t.type];
+        return (
+          <div
+            key={t.id}
+            className="animate-rise relative bg-white border border-[var(--line)] rounded-[var(--r-lg)] shadow-[var(--shadow-lg)] pl-5 pr-4 py-4 flex items-start gap-3 overflow-hidden"
           >
-            <X size={14} />
-          </button>
-        </div>
-      ))}
+            <span
+              className={`absolute left-0 top-0 bottom-0 w-1 ${TYPE_BAR[t.type]}`}
+            />
+            <span className={`icon-tile w-9 h-9 ${TYPE_TILE[t.type]}`}>
+              <Icon size={18} />
+            </span>
+            <div className="flex-1 min-w-0 pt-0.5">
+              <p className="text-sm font-semibold text-[var(--ink)]">{t.title}</p>
+              {t.message && (
+                <p className="text-xs text-[var(--slate)] mt-1 leading-relaxed">
+                  {t.message}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={() => onDismiss(t.id)}
+              className="text-[var(--muted)] hover:text-[var(--ink)] flex-shrink-0 p-1 -m-1 rounded-[var(--r-sm)] hover:bg-[var(--canvas)] transition-colors"
+            >
+              <X size={15} />
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
 }

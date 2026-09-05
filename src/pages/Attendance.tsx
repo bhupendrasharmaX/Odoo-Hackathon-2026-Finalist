@@ -23,7 +23,7 @@ function formatTime(iso: string | null): string {
 }
 
 const columns: Column<AttendanceRecord>[] = [
-  { key: 'employeeId', header: 'Emp ID', width: '90px' },
+  { key: 'employeeId', header: 'Emp ID', width: '110px' },
   { key: 'employeeName', header: 'Name' },
   {
     key: 'checkIn',
@@ -85,29 +85,31 @@ export function AttendancePage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-[var(--ink)]">Attendance</h1>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="page-title">Attendance</h1>
+          <p className="page-subtitle">
+            Who clocked in, who didn&apos;t, and how the day added up.
+          </p>
+        </div>
         <input
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          className="px-3 py-1.5 text-sm border border-[var(--line)] rounded bg-white text-[var(--ink)] focus:outline-none focus:border-[var(--accent)]"
+          className="input w-auto tabular-nums"
         />
       </div>
 
       {/* Summary bar */}
-      <div className="flex gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         {summary.map((s) => (
-          <div
-            key={s.key}
-            className="flex items-center gap-2 px-3 py-2 bg-white border border-[var(--line)] rounded"
-          >
+          <div key={s.key} className="card card-hover px-4 py-4">
             <StatusBadge status={s.key} />
-            <span className="text-sm font-medium text-[var(--ink)] tabular-nums">
+            <p className="display-sm text-[var(--ink)] tabular-nums mt-3">
               {s.count}
-            </span>
+            </p>
           </div>
         ))}
       </div>
