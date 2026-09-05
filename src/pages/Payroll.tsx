@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Check, X } from 'lucide-react';
+import { Plus, Check, X, Banknote, ChevronDown } from 'lucide-react';
 import api from '../api';
 import type { PayrollRun, Payslip } from '../types';
 import { DataTable, type Column } from '../components/DataTable';
@@ -66,7 +66,7 @@ export function PayrollPage() {
   };
 
   const payslipColumns: Column<Payslip>[] = [
-    { key: 'employeeId', header: 'Emp ID', width: '90px' },
+    { key: 'employeeId', header: 'Emp ID', width: '110px' },
     { key: 'employeeName', header: 'Name' },
     {
       key: 'basicSalary',
@@ -140,28 +140,30 @@ export function PayrollPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-[var(--ink)]">Payroll</h1>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="page-title">Payroll</h1>
+          <p className="page-subtitle">
+            Open a run to see every payslip behind the number.
+          </p>
+        </div>
         <Can module="payroll" action="write">
-          <button className="inline-flex items-center gap-1.5 px-3 h-8 bg-[var(--accent)] text-white text-sm font-medium rounded hover:opacity-90 transition-opacity">
-            <Plus size={14} />
+          <button className="btn btn-primary">
+            <Plus size={16} />
             New Run
           </button>
         </Can>
       </div>
 
       {/* Payroll Runs */}
-      <div className="space-y-3">
+      <div className="space-y-4">
         {runs.map((run) => (
-          <div
-            key={run.id}
-            className="bg-white border border-[var(--line)] rounded overflow-hidden"
-          >
+          <div key={run.id} className="card overflow-hidden">
             {/* Run header */}
             <div
-              className="flex items-center justify-between px-4 h-12 cursor-pointer hover:bg-[var(--canvas)] transition-colors"
+              className="flex flex-wrap items-center justify-between gap-4 px-5 py-4 cursor-pointer hover:bg-[#FAFBFE] transition-colors"
               onClick={() =>
                 selectedRun === run.id
                   ? setSelectedRun(null)
@@ -169,43 +171,62 @@ export function PayrollPage() {
               }
             >
               <div className="flex items-center gap-4">
-                <span className="text-sm font-medium text-[var(--ink)]">
-                  {MONTHS[run.month]} {run.year}
+                <span className="icon-tile tile-blue">
+                  <Banknote size={19} />
                 </span>
-                <StatusBadge status={run.status} />
-                <span className="text-xs text-[var(--slate)]">
-                  {run.totalEmployees} employees
-                </span>
+                <div>
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-[15px] font-semibold text-[var(--ink)]">
+                      {MONTHS[run.month]} {run.year}
+                    </span>
+                    <StatusBadge status={run.status} />
+                  </div>
+                  <p className="text-xs text-[var(--slate)] mt-0.5 tabular-nums">
+                    {run.totalEmployees} employees · gross{' '}
+                    {formatINR(run.totalGross)}
+                  </p>
+                </div>
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-5">
                 <div className="text-right">
-                  <span className="text-xs text-[var(--slate)]">Net: </span>
-                  <span className="text-sm font-semibold text-[var(--ink)] tabular-nums">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--muted)]">
+                    Net payable
+                  </p>
+                  <p className="text-lg font-bold text-[var(--ink)] tabular-nums">
                     {formatINR(run.totalNet)}
-                  </span>
+                  </p>
                 </div>
                 {canApprove && run.status === 'pending' && (
-                  <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                  <div
+                    className="flex gap-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <button
                       onClick={() => handleApprove(run.id)}
-                      className="inline-flex items-center gap-1 px-2 h-7 text-xs font-medium bg-emerald-50 text-[var(--accent)] rounded hover:bg-emerald-100 transition-colors"
+                      className="btn btn-sm btn-success-tonal"
                     >
-                      <Check size={12} /> Approve
+                      <Check size={14} /> Approve
                     </button>
                     <button
                       onClick={() => handleReject(run.id)}
-                      className="inline-flex items-center gap-1 px-2 h-7 text-xs font-medium bg-red-50 text-[var(--danger)] rounded hover:bg-red-100 transition-colors"
+                      className="btn btn-sm btn-danger-tonal"
                     >
-                      <X size={12} /> Reject
+                      <X size={14} /> Reject
                     </button>
                   </div>
                 )}
+                <ChevronDown
+                  size={18}
+                  className={`text-[var(--muted)] transition-transform ${
+                    selectedRun === run.id ? 'rotate-180' : ''
+                  }`}
+                />
               </div>
             </div>
 
             {/* Payslips */}
             {selectedRun === run.id && (
-              <div className="border-t border-[var(--line)]">
+              <div className="border-t border-[var(--line)] nested-table">
                 <DataTable<Payslip>
                   columns={payslipColumns}
                   data={payslips}

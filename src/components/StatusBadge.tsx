@@ -1,6 +1,7 @@
 /**
  * PeoplePay360 — <StatusBadge>
  * Colour-codes every status enum in the system using the exact palette.
+ * Rendered as a soft-tint pill, matching the reference design language.
  */
 
 type StatusValue =
@@ -15,52 +16,60 @@ type StatusValue =
   // Leave status
   | 'cancelled';
 
-const STATUS_CONFIG: Record<string, { bg: string; text: string; label?: string }> = {
-  // Positive / green
-  active:    { bg: 'bg-emerald-50',  text: 'text-[var(--accent)]' },
-  approved:  { bg: 'bg-emerald-50',  text: 'text-[var(--accent)]' },
-  paid:      { bg: 'bg-emerald-50',  text: 'text-[var(--accent)]' },
-  present:   { bg: 'bg-emerald-50',  text: 'text-[var(--accent)]' },
+type Tone = 'success' | 'warning' | 'danger' | 'neutral' | 'accent' | 'purple';
 
-  // Warning / amber
-  pending:   { bg: 'bg-amber-50',    text: 'text-[var(--warning)]' },
-  on_leave:  { bg: 'bg-amber-50',    text: 'text-[var(--warning)]', label: 'On Leave' },
-  half_day:  { bg: 'bg-amber-50',    text: 'text-[var(--warning)]', label: 'Half Day' },
-  draft:     { bg: 'bg-amber-50',    text: 'text-[var(--warning)]' },
+const TONE_CLASS: Record<Tone, string> = {
+  success: 'bg-[var(--success-soft)] text-[var(--success)]',
+  warning: 'bg-[var(--warning-soft)] text-[var(--warning)]',
+  danger:  'bg-[var(--danger-soft)] text-[var(--danger)]',
+  accent:  'bg-[var(--accent-soft)] text-[var(--accent)]',
+  purple:  'bg-[var(--purple-soft)] text-[var(--purple)]',
+  neutral: 'bg-[#EDF0F6] text-[var(--slate)]',
+};
 
-  // Danger / red
-  rejected:  { bg: 'bg-red-50',      text: 'text-[var(--danger)]' },
-  terminated:{ bg: 'bg-red-50',      text: 'text-[var(--danger)]' },
-  absent:    { bg: 'bg-red-50',      text: 'text-[var(--danger)]' },
-  cancelled: { bg: 'bg-red-50',      text: 'text-[var(--danger)]' },
+const STATUS_CONFIG: Record<string, { tone: Tone; label?: string }> = {
+  // Positive
+  active:    { tone: 'success' },
+  approved:  { tone: 'success' },
+  paid:      { tone: 'success' },
+  present:   { tone: 'success' },
 
-  // Neutral / grey
-  inactive:  { bg: 'bg-gray-100',    text: 'text-[var(--slate)]' },
-  leave:     { bg: 'bg-gray-100',    text: 'text-[var(--slate)]' },
-  holiday:   { bg: 'bg-blue-50',     text: 'text-blue-700' },
-  weekend:   { bg: 'bg-gray-100',    text: 'text-[var(--slate)]' },
+  // Warning
+  pending:   { tone: 'warning' },
+  on_leave:  { tone: 'warning', label: 'On Leave' },
+  half_day:  { tone: 'warning', label: 'Half Day' },
+  draft:     { tone: 'warning' },
+
+  // Danger
+  rejected:  { tone: 'danger' },
+  terminated:{ tone: 'danger' },
+  absent:    { tone: 'danger' },
+  cancelled: { tone: 'danger' },
+
+  // Neutral / informational
+  inactive:  { tone: 'neutral' },
+  leave:     { tone: 'neutral' },
+  holiday:   { tone: 'accent' },
+  weekend:   { tone: 'neutral' },
 
   // Leave types
-  casual:    { bg: 'bg-blue-50',     text: 'text-blue-700' },
-  sick:      { bg: 'bg-red-50',      text: 'text-[var(--danger)]' },
-  earned:    { bg: 'bg-emerald-50',  text: 'text-[var(--accent)]' },
-  maternity: { bg: 'bg-purple-50',   text: 'text-purple-700' },
-  paternity: { bg: 'bg-purple-50',   text: 'text-purple-700' },
-  unpaid:    { bg: 'bg-gray-100',    text: 'text-[var(--slate)]' },
+  casual:    { tone: 'accent' },
+  sick:      { tone: 'danger' },
+  earned:    { tone: 'success' },
+  maternity: { tone: 'purple' },
+  paternity: { tone: 'purple' },
+  unpaid:    { tone: 'neutral' },
 };
 
 export function StatusBadge({ status }: { status: StatusValue | string }) {
-  const config = STATUS_CONFIG[status] || {
-    bg: 'bg-gray-100',
-    text: 'text-[var(--slate)]',
-  };
+  const config = STATUS_CONFIG[status] || { tone: 'neutral' as Tone };
 
   const label =
     config.label || status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium tracking-wide uppercase ${config.bg} ${config.text}`}
+      className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide uppercase whitespace-nowrap ${TONE_CLASS[config.tone]}`}
     >
       {label}
     </span>
