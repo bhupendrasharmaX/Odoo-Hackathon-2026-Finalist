@@ -1,0 +1,473 @@
+// =====================================================================
+// PeoplePay360 — Prisma schema (PostgreSQL 16)
+// Owner: Person 1. The generated client is consumed via
+// server/src/lib/prisma.ts, which loads it lazily until this file exists.
+//
+// Enum literals and field names follow 00_SHARED_CONTRACT.md as mirrored in
+// server/src/config/roles.ts and server/src/core/*. Do not rename them.
+//
+//   cd server && npm run prisma:generate
+//   cd server && npm run prisma:migrate
+// =====================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------
+// Enums — exact strings from the shared contract
+// ---------------------------------------------------------------------
+
+enum Role {
+  EMPLOYEE
+  HR_MANAGER
+  HR_PAYROLL_USER
+  HR_PAYROLL_MANAGER
+  ADMIN
+}
+
+enum EmployeeType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERN
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum ContractStatus {
+  DRAFT
+  RUNNING
+  EXPIRED
+  CANCELLED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  LATE
+  ABSENT
+  HALF_DAY
+  MISSING_CHECKOUT
+}
+
+enum TimeOffUnit {
+  DAYS
+  HOURS
+}
+
+enum AllocationStatus {
+  PENDING
+  APPROVED
+  REFUSED
+}
+
+enum TimeOffRequestStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REFUSED
+}
+
+enum PayrunStatus {
+  DRAFT
+  COMPUTED
+  VALIDATED
+  PAID
+  CANCELLED
+}
+
+enum PayslipStatus {
+  DRAFT
+  COMPUTED
+  VALIDATED
+  PAID
+}
+
+enum RuleCategory {
+  BASIC
+  ALLOWANCE
+  GROSS
+  DEDUCTION
+  NET
+}
+
+enum ComputeType {
+  FIXED
+  PERCENTAGE
+  FORMULA
+}
+
+enum GrievanceStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  REJECTED
+}
+
+// ---------------------------------------------------------------------
+// Org
+// ---------------------------------------------------------------------
+
+model Department {
+  id        String   @id @default(cuid())
+  name      String   @db.VarChar(100)
+  code      String   @unique @db.VarChar(20)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employees Employee[]
+  contracts Contract[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique @db.VarChar(150)
+  passwordHash String   @db.VarChar(255)
+  role         Role
+  name         String   @db.VarChar(150)
+  employeeId   String?  @unique
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  employee           Employee?        @relation(fields: [employeeId], references: [id])
+  payrunsCreated     Payrun[]         @relation("PayrunCreatedBy")
+  timeOffApproved    TimeOffRequest[] @relation("TimeOffApprovedBy")
+  grievancesResolved Grievance[]      @relation("GrievanceResolvedBy")
+  auditLogs          AuditLog[]
+}
+
+model Employee {
+  id                String         @id @default(cuid())
+  employeeCode      String         @unique @db.VarChar(30)
+  name              String         @db.VarChar(150)
+  email             String         @unique @db.VarChar(150)
+  phone             String?        @db.VarChar(30)
+  departmentId      String
+  jobPosition       String?        @db.VarChar(100)
+  managerId         String?
+  workingScheduleId String?
+  employeeType      EmployeeType   @default(FULL_TIME)
+  status            EmployeeStatus @default(ACTIVE)
+  /// Null raises a HIGH MISSING_BANK warning at payslip compute time.
+  bankAccount       String?        @db.VarChar(60)
+  avatarUrl         String?        @db.VarChar(255)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  department      Department       @relation(fields: [departmentId], references: [id])
+  manager         Employee?        @relation("EmployeeManager", fields: [managerId], references: [id])
+  reports         Employee[]       @relation("EmployeeManager")
+  workingSchedule WorkingSchedule? @relation(fields: [workingScheduleId], references: [id])
+  user            User?
+  contracts       Contract[]
+  attendances     Attendance[]
+  allocations     Allocation[]
+  timeOffRequests TimeOffRequest[]
+  payslips        Payslip[]
+  grievances      Grievance[]
+
+  @@index([departmentId])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------
+// Working schedules
+// ---------------------------------------------------------------------
+
+model WorkingSchedule {
+  id        String   @id @default(cuid())
+  name      String   @db.VarChar(100)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lines     ScheduleLine[]
+  employees Employee[]
+  contracts Contract[]
+}
+
+model ScheduleLine {
+  id                String   @id @default(cuid())
+  workingScheduleId String
+  /// 0 = Sunday .. 6 = Saturday. The range is enforced in Zod at the route
+  /// layer; Prisma cannot express a CHECK constraint.
+  dayOfWeek         Int      @db.SmallInt
+  /// "HH:MM:SS" wall clock, deliberately not a timestamp: a shift start has no
+  /// date and no timezone, and @db.Time round-trips through a JS Date, which
+  /// invites UTC-shift bugs.
+  startTime         String   @db.VarChar(8)
+  endTime           String   @db.VarChar(8)
+  breakMinutes      Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  workingSchedule WorkingSchedule @relation(fields: [workingScheduleId], references: [id], onDelete: Cascade)
+
+  @@index([workingScheduleId])
+}
+
+// ---------------------------------------------------------------------
+// Salary structures
+// ---------------------------------------------------------------------
+
+model SalaryStructure {
+  id        String   @id @default(cuid())
+  name      String   @db.VarChar(100)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  rules     SalaryRule[]
+  contracts Contract[]
+  payruns   Payrun[]
+}
+
+model SalaryRule {
+  id           String       @id @default(cuid())
+  structureId  String
+  name         String       @db.VarChar(100)
+  code         String       @db.VarChar(30)
+  category     RuleCategory
+  sequence     Int
+  computeType  ComputeType
+  /// FIXED only.
+  amount       Decimal?     @db.Decimal(12, 2)
+  /// PERCENTAGE only. 12 means 12%.
+  percentage   Decimal?     @db.Decimal(6, 3)
+  /// FORMULA only, e.g. "GROSS - PF".
+  formula      String?      @db.VarChar(255)
+  /// PERCENTAGE only. Null means "percentage of contract.wage".
+  baseRuleCode String?      @db.VarChar(30)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  structure SalaryStructure @relation(fields: [structureId], references: [id], onDelete: Cascade)
+
+  @@unique([structureId, code])
+  @@index([structureId, sequence])
+}
+
+// ---------------------------------------------------------------------
+// Contracts
+// ---------------------------------------------------------------------
+
+model Contract {
+  id                String         @id @default(cuid())
+  employeeId        String
+  startDate         DateTime       @db.Date
+  /// Null means open-ended.
+  endDate           DateTime?      @db.Date
+  wage              Decimal        @db.Decimal(12, 2)
+  jobPosition       String?        @db.VarChar(100)
+  departmentId      String
+  workingScheduleId String?
+  salaryStructureId String?
+  status            ContractStatus @default(DRAFT)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  employee        Employee         @relation(fields: [employeeId], references: [id])
+  department      Department       @relation(fields: [departmentId], references: [id])
+  workingSchedule WorkingSchedule? @relation(fields: [workingScheduleId], references: [id])
+  salaryStructure SalaryStructure? @relation(fields: [salaryStructureId], references: [id])
+  payslips        Payslip[]
+
+  /// Drives "which contract applies to period X" in contract-resolution.ts.
+  @@index([employeeId, startDate, endDate])
+}
+
+// ---------------------------------------------------------------------
+// Attendance
+// ---------------------------------------------------------------------
+
+model Attendance {
+  id               String           @id @default(cuid())
+  employeeId       String
+  checkIn          DateTime
+  /// Null means the shift was never closed - MISSING_CHECKOUT.
+  checkOut         DateTime?
+  workedHours      Decimal          @default(0) @db.Decimal(6, 2)
+  overtimeHours    Decimal          @default(0) @db.Decimal(6, 2)
+  status           AttendanceStatus
+  notes            String?          @db.VarChar(255)
+  isManuallyEdited Boolean          @default(false)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId, checkIn])
+}
+
+// ---------------------------------------------------------------------
+// Time off
+// ---------------------------------------------------------------------
+
+model TimeOffType {
+  id                 String      @id @default(cuid())
+  name               String      @db.VarChar(100)
+  unit               TimeOffUnit @default(DAYS)
+  requiresAllocation Boolean     @default(true)
+  isPaid             Boolean     @default(true)
+  color              String?     @db.VarChar(20)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  allocations Allocation[]
+  requests    TimeOffRequest[]
+}
+
+model Allocation {
+  id            String           @id @default(cuid())
+  employeeId    String
+  timeOffTypeId String
+  allocatedDays Decimal          @db.Decimal(6, 2)
+  usedDays      Decimal          @default(0) @db.Decimal(6, 2)
+  validFrom     DateTime         @db.Date
+  validTo       DateTime         @db.Date
+  status        AllocationStatus @default(PENDING)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  employee    Employee         @relation(fields: [employeeId], references: [id])
+  timeOffType TimeOffType      @relation(fields: [timeOffTypeId], references: [id])
+  requests    TimeOffRequest[]
+
+  @@index([employeeId, timeOffTypeId])
+}
+
+model TimeOffRequest {
+  id            String               @id @default(cuid())
+  employeeId    String
+  timeOffTypeId String
+  allocationId  String?
+  dateFrom      DateTime             @db.Date
+  dateTo        DateTime             @db.Date
+  durationDays  Decimal              @db.Decimal(6, 2)
+  status        TimeOffRequestStatus @default(DRAFT)
+  reason        String?              @db.VarChar(255)
+  approvedById  String?
+  approvedAt    DateTime?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  employee    Employee    @relation(fields: [employeeId], references: [id])
+  timeOffType TimeOffType @relation(fields: [timeOffTypeId], references: [id])
+  allocation  Allocation? @relation(fields: [allocationId], references: [id])
+  approvedBy  User?       @relation("TimeOffApprovedBy", fields: [approvedById], references: [id])
+
+  @@index([employeeId, status])
+}
+
+// ---------------------------------------------------------------------
+// Payroll
+// ---------------------------------------------------------------------
+
+model Payrun {
+  id                String       @id @default(cuid())
+  name              String       @db.VarChar(150)
+  salaryStructureId String
+  periodStart       DateTime     @db.Date
+  periodEnd         DateTime     @db.Date
+  status            PayrunStatus @default(DRAFT)
+  createdById       String
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  salaryStructure SalaryStructure @relation(fields: [salaryStructureId], references: [id])
+  createdBy       User            @relation("PayrunCreatedBy", fields: [createdById], references: [id])
+  payslips        Payslip[]
+
+  @@index([periodStart, periodEnd])
+}
+
+model Payslip {
+  id              String        @id @default(cuid())
+  employeeId      String
+  payrunId        String
+  /// The contract resolved at compute time, stored for audit.
+  contractId      String
+  periodStart     DateTime      @db.Date
+  periodEnd       DateTime      @db.Date
+  workedDays      Decimal       @db.Decimal(6, 2)
+  gross           Decimal       @db.Decimal(12, 2)
+  totalDeductions Decimal       @db.Decimal(12, 2)
+  net             Decimal       @db.Decimal(12, 2)
+  status          PayslipStatus @default(DRAFT)
+  /// PayslipWarning[] from server/src/core/warnings.ts.
+  warnings        Json?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  employee   Employee      @relation(fields: [employeeId], references: [id])
+  payrun     Payrun        @relation(fields: [payrunId], references: [id])
+  contract   Contract      @relation(fields: [contractId], references: [id])
+  lines      PayslipLine[]
+  grievances Grievance[]
+
+  /// DB-level duplicate prevention - the DUPLICATE_PAYSLIP trap.
+  @@unique([payrunId, employeeId])
+  @@index([employeeId, periodStart])
+}
+
+model PayslipLine {
+  id        String       @id @default(cuid())
+  payslipId String
+  ruleCode  String       @db.VarChar(30)
+  ruleName  String       @db.VarChar(100)
+  category  RuleCategory
+  sequence  Int
+  /// DEDUCTION lines are stored NEGATIVE, so summing every line gives net.
+  amount    Decimal      @db.Decimal(12, 2)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  payslip Payslip @relation(fields: [payslipId], references: [id], onDelete: Cascade)
+
+  @@index([payslipId, sequence])
+}
+
+// ---------------------------------------------------------------------
+// Grievances & audit
+// ---------------------------------------------------------------------
+
+model Grievance {
+  id           String          @id @default(cuid())
+  employeeId   String
+  payslipId    String?
+  subject      String          @db.VarChar(150)
+  description  String          @db.Text
+  status       GrievanceStatus @default(OPEN)
+  response     String?         @db.Text
+  resolvedById String?
+  resolvedAt   DateTime?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  payslip    Payslip? @relation(fields: [payslipId], references: [id])
+  resolvedBy User?    @relation("GrievanceResolvedBy", fields: [resolvedById], references: [id])
+
+  @@index([employeeId, status])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  action     String   @db.VarChar(100)
+  entityType String   @db.VarChar(60)
+  entityId   String   @db.VarChar(30)
+  changes    Json?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([entityType, entityId])
+}
