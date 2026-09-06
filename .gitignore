@@ -35,3 +35,6 @@ server/.env.*
 
 # Prisma generated client
 server/src/generated
+
+# Local editor/tooling config
+.claude/
