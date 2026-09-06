@@ -38,17 +38,23 @@ Two pieces carry the product:
 
 ## Repository Layout
 
-The project is split across branches. No single branch contains everything, so
-check out the one you need.
+```
+├── client/      React 19 + Vite frontend
+├── server/      Express + Prisma API
+├── database/    base.sql — MySQL schema and demo seed
+└── scripts/     verify-api.sh — end-to-end API check
+```
 
-| Branch | Contents |
+| Path | Contents |
 |---|---|
-| `frontend` | **The React client.** Current UI, wired to the live API over Axios. Run this for the app. |
-| `backend` | **The implemented API.** Express + Prisma server with the full service layer, PDF, mailer and audit logging, plus an earlier prototype client under `client/`. Run this for the server. |
-| `main` | API scaffold and documentation: the complete route surface, middleware, RBAC config and pure core engines. Route handlers return `notImplemented` — this branch does not serve data. |
-| `database` | MySQL `base.sql` (schema + demo seed) alongside the Prisma schema and migration. |
+| `client/` | The React app: 25 route-level screens, the Axios API client, role-gated routing. |
+| `server/` | The API: routes, services, middleware, the pure core engines, the Prisma schema and migrations, and both test suites. |
+| `database/base.sql` | MySQL 8 schema and demo seed, for running the project on MySQL instead of PostgreSQL. |
+| `scripts/verify-api.sh` | Drives a running server through the API the way a reviewer would with curl. Reseeds first, so it is repeatable. |
 
-To run the full stack, pair `backend` (server) with `frontend` (client).
+`main` holds the whole project. The `frontend`, `backend` and `database`
+branches are kept as the per-person work history — everything in them is merged
+here, so clone `main`.
 
 ---
 
@@ -75,7 +81,7 @@ To run the full stack, pair `backend` (server) with `frontend` (client).
 | Framework | Express 4 |
 | Language | TypeScript 5 |
 | ORM | Prisma 5 |
-| Database | PostgreSQL 16 (MySQL script also provided on `database`) |
+| Database | PostgreSQL 16 (MySQL 8 supported via `database/base.sql`) |
 | Auth | JWT (`jsonwebtoken`) + `bcryptjs` |
 | Validation | Zod |
 | Money | Decimal.js |
@@ -454,9 +460,9 @@ Base path `/api/v1`. If a path is not listed here, it does not exist.
 ## Roles &amp; Permissions
 
 Five roles, defined once in `server/src/config/roles.ts` and mirrored for UX in
-`src/auth/permissions.ts`. **The frontend copy hides controls only. The server
-enforces every rule independently** — if the two disagree, the server wins and
-the user sees a 403.
+`client/src/auth/permissions.ts`. **The frontend copy hides controls only. The
+server enforces every rule independently** — if the two disagree, the server wins
+and the user sees a 403.
 
 | Role group | Members |
 |---|---|
@@ -489,16 +495,17 @@ and rules, but only `HR_PAYROLL_MANAGER` and `ADMIN` may write them.
 
 - Node.js ≥ 20
 - npm ≥ 9
-- PostgreSQL 16 (or MySQL 8 using `base.sql` on the `database` branch)
-
-### 1. Backend
+- PostgreSQL 16 (or MySQL 8 — see below)
 
 ```bash
 git clone https://github.com/bhupendrasharmaX/Odoo-Hackathon-2026-Finalist.git
 cd Odoo-Hackathon-2026-Finalist
-git checkout backend
-cd server
+```
 
+### 1. API
+
+```bash
+cd server
 npm install
 cp .env.example .env      # set DATABASE_URL and JWT_SECRET
 
@@ -522,12 +529,15 @@ Environment variables:
 | `CORS_ORIGIN` | Comma-separated allowed origins; the Vite dev server is `http://localhost:5173` |
 | `SMTP_*` | Optional. With SMTP unset, sending payslips is logged and still recorded as sent, so the demo works offline |
 
-### 2. Frontend
+To run on MySQL 8 instead, load `database/base.sql` — it creates the schema and
+the same demo data — and point `DATABASE_URL` at that database.
 
-In a second terminal, from a separate clone or worktree:
+### 2. Client
+
+In a second terminal:
 
 ```bash
-git checkout frontend
+cd client
 npm install
 cp .env.example .env       # VITE_API_URL=http://localhost:4000/api/v1
 npm run dev
@@ -559,7 +569,29 @@ time-off types, and three payruns — two `PAID`, one `VALIDATED`.
 ## Project Structure
 
 ```
-server/                              # backend branch
+client/
+├── public/
+├── src/
+│   ├── api/
+│   │   ├── client.ts                # Axios instance, interceptors, API surface
+│   │   └── index.ts
+│   ├── auth/
+│   │   ├── AuthContext.tsx          # session state + boot hydration
+│   │   ├── ProtectedRoute.tsx       # ProtectedRoute + RequireRole
+│   │   └── permissions.ts           # mirrored role matrix (UX only)
+│   ├── components/                  # DataTable, charts, forms, Toast, Topbar
+│   ├── layouts/AppLayout.tsx        # shell, scroll reset, route transitions
+│   ├── lib/
+│   │   ├── useApi.ts                # fetch / loading / error hook
+│   │   └── format.ts
+│   ├── pages/                       # 25 route-level screens
+│   ├── types/index.ts               # shared API types
+│   ├── App.tsx                      # routing + role gates
+│   └── main.tsx
+├── index.html
+└── vite.config.ts
+
+server/
 ├── prisma/
 │   ├── schema.prisma                # 15 models, 12 enums
 │   └── migrations/
@@ -597,30 +629,18 @@ server/                              # backend branch
     ├── core-logic.test.ts           # formula, money, contract resolution
     └── permission-wall.test.ts      # RBAC enforcement via Supertest
 
-src/                                 # frontend branch
-├── api/
-│   ├── client.ts                    # Axios instance, interceptors, API surface
-│   └── index.ts
-├── auth/
-│   ├── AuthContext.tsx              # session state + boot hydration
-│   ├── ProtectedRoute.tsx           # ProtectedRoute + RequireRole
-│   └── permissions.ts               # mirrored role matrix (UX only)
-├── components/                      # DataTable, charts, forms, Toast, Topbar
-├── layouts/AppLayout.tsx            # shell, scroll reset, route transitions
-├── lib/
-│   ├── useApi.ts                    # fetch / loading / error hook
-│   └── format.ts
-├── pages/                           # 25 route-level screens
-├── types/index.ts                   # shared API types
-├── App.tsx                          # routing + role gates
-└── main.tsx
+database/
+└── base.sql                         # MySQL 8 schema + demo seed
+
+scripts/
+└── verify-api.sh                    # end-to-end API check via curl
 ```
 
 ---
 
 ## Scripts
 
-### Backend (`backend` branch, in `server/`)
+### API (`server/`)
 
 | Command | Effect |
 |---|---|
@@ -636,7 +656,7 @@ src/                                 # frontend branch
 | `npm run prisma:studio` | Open Prisma Studio |
 | `npm run prisma:reset` | Drop and rebuild the database |
 
-### Frontend (`frontend` branch)
+### Client (`client/`)
 
 | Command | Effect |
 |---|---|
@@ -653,7 +673,8 @@ src/                                 # frontend branch
 cd server && npm run test
 ```
 
-Two suites, covering the parts where a silent error would be expensive:
+Two suites, 86 tests, covering the parts where a silent error would be
+expensive:
 
 - **`core-logic.test.ts`** — formula evaluation (including rejection of
   `process.exit(1)`, member access and function calls), inclusive day counting,
@@ -665,6 +686,9 @@ Two suites, covering the parts where a silent error would be expensive:
   endpoint while retaining people ops, `HR_PAYROLL_USER` read-only on salary
   config, `/users` restricted to `ADMIN`, and `EMPLOYEE` receiving 403 rather
   than another employee's records.
+
+With the server running against a real database, `scripts/verify-api.sh` drives
+the API end to end the way a reviewer would with curl.
 
 ---
 
