@@ -1,7 +1,7 @@
 <h1 align="center">PeoplePay360</h1>
 
 <p align="center">
-  <strong>HR &amp; Payroll Platform — Odoo Hackathon 2026 Finalist</strong>
+  <strong>HR &amp; Payroll Platform - Odoo Hackathon 2026 Finalist</strong>
 </p>
 
 <p align="center">
@@ -200,7 +200,7 @@ End to end, from the login screen to a paid payslip and a resolved grievance.
                           token cleared → /login
 ```
 
-### Stage 1 — Session start
+### Stage 1 - Session start
 
 ```
 Visitor hits any protected URL
@@ -229,7 +229,7 @@ request interceptor. A 401 on any route other than `/auth/me` clears storage and
 hard-redirects to `/login` — the interceptor lives outside React, and the token
 is already gone either way.
 
-### Stage 2 — The landing screen resolves by role
+### Stage 2 - The landing screen resolves by role
 
 `/` does not render one fixed dashboard. `GET /dashboard` is payroll-scoped and
 refuses `HR_MANAGER` and `EMPLOYEE`, so each role lands on a screen built only
@@ -241,7 +241,7 @@ from endpoints it can actually read — nobody is shown a panel that would 403.
 | `HR_MANAGER` | People overview | Roster, running contracts, pending time off, recent attendance |
 | `EMPLOYEE` | My workspace | Own attendance, leave balance, own payslips |
 
-### Stage 3 — Navigation
+### Stage 3 - Navigation
 
 One top bar, six groups. Leaves appear only for roles that may open them, so the
 visible menu differs per role. A group left with a single visible leaf renders as
@@ -266,7 +266,7 @@ an explicit "not available for your role" panel rather than a silent bounce — 
 redirect to the dashboard reads as a bug, and the wall between `HR_MANAGER` and
 payroll is a rule worth stating out loud. The server refuses independently.
 
-### Stage 4 — Setup, in the order payroll depends on it
+### Stage 4 - Setup, in the order payroll depends on it
 
 A payrun cannot compute until this chain exists. Each step is a prerequisite for
 the next.
@@ -294,7 +294,7 @@ evaluated as JavaScript — member access and function calls are rejected, unkno
 identifiers throw instead of defaulting to zero, and division by zero has
 defined behaviour.
 
-### Stage 5 — Daily operations
+### Stage 5 - Daily operations
 
 ```
 ATTENDANCE
@@ -323,7 +323,7 @@ TIME OFF
 `EMPLOYEE` raises its own requests and checks itself in and out. Approval sits
 with `HR_PLUS`.
 
-### Stage 6 — Running payroll
+### Stage 6 - Running payroll
 
 The wizard collects scope, then previews eligibility. Nothing is created until
 the second step is confirmed.
@@ -372,7 +372,7 @@ failed, rather than failing the whole run.
 warning is unresolved. That is the one place the workflow refuses to move
 forward on its own.
 
-### Stage 7 — Delivery
+### Stage 7 - Delivery
 
 ```
 send-payslips
@@ -387,7 +387,7 @@ An employee opens the payslip from their workspace, sees the line breakdown, and
 downloads the PDF via `GET /payslips/:id/pdf` — the one endpoint that returns a
 file rather than the JSON envelope.
 
-### Stage 8 — Grievance loop
+### Stage 8 - Grievance loop
 
 ```
 Employee, from a payslip ─► "Raise a grievance"  subject + description
@@ -408,7 +408,7 @@ The grievance carries `payslipId`, so the reviewer opens the exact payslip being
 disputed. `HR_MANAGER` cannot resolve one — it never sees the payslip in
 question.
 
-### Stage 9 — Session end
+### Stage 9 - Session end
 
 Logout clears `pp360_token` and `pp360_user` and returns to `/login`. An expired
 token reaches the same place on the next request, through the 401 interceptor.
