@@ -1,0 +1,691 @@
+@import "tailwindcss";
+
+/* ============================================================
+   PeoplePay360 — design tokens
+   ============================================================ */
+
+@theme {
+  --color-ink: #0B1424;
+  --color-slate: #5A6478;
+  --color-muted: #8C95A8;
+  --color-paper: #FFFFFF;
+  --color-canvas: #F4F6FB;
+  --color-line: #E4E8F2;
+  --color-accent: #2B50F5;
+  --color-accent-hover: #1E3ED4;
+  --color-accent-light: #7B93FF;
+  --color-accent-soft: #EDF1FF;
+  --color-success: #12A67F;
+  --color-warning: #C2760A;
+  --color-danger: #E0335C;
+  --color-sidebar-bg: #0B1424;
+}
+
+:root {
+  /* Neutrals */
+  --ink: #0B1424;
+  --slate: #5A6478;
+  --muted: #8C95A8;
+  --paper: #FFFFFF;
+  --canvas: #F4F6FB;
+  --line: #E4E8F2;
+
+  --accent: #2B50F5;
+  --accent-hover: #1E3ED4;
+  --accent-light: #7B93FF;
+  --accent-soft: #EDF1FF;
+
+  /* Semantic */
+  --success: #12A67F;
+  --success-soft: #E6F7F1;
+  --warning: #C2760A;
+  --warning-soft: #FDF3E3;
+  --danger: #E0335C;
+  --danger-soft: #FDECF1;
+  --purple: #7C4DDB;
+  --purple-soft: #F2ECFD;
+
+  /* Dark section (navy band) */
+  --sidebar-bg: #0B1424;
+  --sidebar-raised: #16213A;
+
+  /* Elevation */
+  --shadow-xs: 0 1px 2px rgba(11, 20, 36, 0.05);
+  --shadow-sm: 0 1px 3px rgba(11, 20, 36, 0.06), 0 1px 2px rgba(11, 20, 36, 0.04);
+  --shadow-md: 0 4px 12px rgba(11, 20, 36, 0.07), 0 1px 3px rgba(11, 20, 36, 0.04);
+  --shadow-lg: 0 12px 32px rgba(11, 20, 36, 0.10), 0 2px 8px rgba(11, 20, 36, 0.05);
+  --shadow-accent: 0 4px 14px rgba(43, 80, 245, 0.28);
+
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 20px;
+}
+
+/* ============================================================
+   Base
+   ============================================================ */
+
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: var(--canvas);
+    color: var(--ink);
+    line-height: 1.5;
+  }
+}
+
+/* ============================================================
+   Typography Scale
+   ============================================================ */
+.text-xs   { font-size: 12px; line-height: 16px; }
+.text-sm   { font-size: 14px; line-height: 20px; }
+.text-base { font-size: 16px; line-height: 24px; }
+.text-lg   { font-size: 20px; line-height: 28px; }
+.text-2xl  { font-size: 28px; line-height: 36px; }
+
+/* Display sizes — big, tight, bold headings */
+.display-sm { font-size: 24px; line-height: 32px; font-weight: 700; letter-spacing: -0.02em; }
+.display-md { font-size: 32px; line-height: 40px; font-weight: 700; letter-spacing: -0.025em; }
+
+/* Money and hour columns line up on the decimal. */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.money {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+@layer components {
+
+  /* ============================================================
+     Buttons
+     ============================================================ */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 40px;
+    padding: 0 18px;
+    border-radius: var(--r-md);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: background-color 0.15s ease, border-color 0.15s ease,
+                box-shadow 0.15s ease, transform 0.1s ease, color 0.15s ease;
+  }
+
+  .btn:active {
+    transform: translateY(1px);
+  }
+
+  .btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .btn-sm { height: 32px; padding: 0 12px; font-size: 13px; border-radius: var(--r-sm); }
+  .btn-xs { height: 26px; padding: 0 10px; font-size: 12px; border-radius: var(--r-sm); gap: 4px; }
+
+  .btn-primary {
+    background-color: var(--accent);
+    color: #fff;
+    box-shadow: var(--shadow-accent);
+  }
+  .btn-primary:hover:not(:disabled) { background-color: var(--accent-hover); }
+
+  .btn-secondary {
+    background-color: var(--paper);
+    color: var(--ink);
+    border-color: var(--line);
+    box-shadow: var(--shadow-xs);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .btn-ghost {
+    background-color: transparent;
+    color: var(--slate);
+  }
+  .btn-ghost:hover:not(:disabled) {
+    background-color: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  /* Tonal action buttons (approve / reject) */
+  .btn-success-tonal { background-color: var(--success-soft); color: var(--success); }
+  .btn-success-tonal:hover:not(:disabled) { background-color: #D3F0E6; }
+
+  .btn-danger-tonal { background-color: var(--danger-soft); color: var(--danger); }
+  .btn-danger-tonal:hover:not(:disabled) { background-color: #FBDCE6; }
+
+  /* White button for use on the blue hero */
+  .btn-on-accent {
+    background-color: #fff;
+    color: var(--accent);
+    box-shadow: var(--shadow-md);
+  }
+  .btn-on-accent:hover:not(:disabled) { background-color: #F3F6FF; }
+
+  /* Outlined button for use on the blue hero */
+  .btn-outline-light {
+    background-color: transparent;
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.35);
+  }
+  .btn-outline-light:hover:not(:disabled) {
+    background-color: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.6);
+  }
+
+  /* ============================================================
+     Cards & Surfaces
+     ============================================================ */
+  .card {
+    background-color: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .card-hover {
+    transition: box-shadow 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+  }
+  .card-hover:hover {
+    box-shadow: var(--shadow-md);
+    border-color: #D3DBEC;
+    transform: translateY(-1px);
+  }
+
+  .card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .card-title {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+  }
+
+  /* A card rendered inside another card drops its own chrome */
+  .nested-table .card {
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .hero-accent {
+    background: linear-gradient(135deg, #2B50F5 0%, #1E3ED4 55%, #1A34B0 100%);
+    border-radius: var(--r-xl);
+    color: #fff;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero-accent::after {
+    content: "";
+    position: absolute;
+    right: -80px;
+    top: -120px;
+    width: 340px;
+    height: 340px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.07);
+    pointer-events: none;
+  }
+
+  .hero-accent::before {
+    content: "";
+    position: absolute;
+    right: 60px;
+    bottom: -140px;
+    width: 260px;
+    height: 260px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.05);
+    pointer-events: none;
+  }
+
+  /* ============================================================
+     Icon tiles
+     ============================================================ */
+  .icon-tile {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--r-md);
+    flex-shrink: 0;
+  }
+
+  .tile-blue   { background-color: var(--accent-soft);  color: var(--accent); }
+  .tile-green  { background-color: var(--success-soft); color: var(--success); }
+  .tile-amber  { background-color: var(--warning-soft); color: var(--warning); }
+  .tile-purple { background-color: var(--purple-soft);  color: var(--purple); }
+  .tile-pink   { background-color: var(--danger-soft);  color: var(--danger); }
+
+  /* ============================================================
+     Form Controls
+     ============================================================ */
+  .input {
+    width: 100%;
+    height: 40px;
+    padding: 0 12px;
+    font-size: 14px;
+    color: var(--ink);
+    background-color: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .input::placeholder { color: var(--muted); }
+
+  .input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(43, 80, 245, 0.12);
+  }
+
+  .label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
+
+  /* ============================================================
+     Pill Tabs
+     ============================================================ */
+  .tab-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--slate);
+    background-color: transparent;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+
+  .tab-pill:hover { background-color: #EAEEF7; color: var(--ink); }
+
+  .tab-pill-active {
+    background-color: var(--accent);
+    color: #fff;
+  }
+  .tab-pill-active:hover { background-color: var(--accent-hover); color: #fff; }
+
+  .tab-count {
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background-color: rgba(11, 20, 36, 0.07);
+  }
+
+  .tab-pill-active .tab-count { background-color: rgba(255, 255, 255, 0.22); }
+
+  /* ============================================================
+     Page Header
+     ============================================================ */
+  .page-title {
+    font-size: 28px;
+    line-height: 36px;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    color: var(--ink);
+  }
+
+  .page-subtitle {
+    font-size: 14px;
+    color: var(--slate);
+    margin-top: 4px;
+  }
+
+}
+
+/* ============================================================
+   Scrollbar
+   ============================================================ */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #CBD3E4;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+/* ============================================================
+   Focus ring — accent halo
+   ============================================================ */
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+
+/* ============================================================
+   Entrance animations & micro-interactions
+   ============================================================ */
+@keyframes pp-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pp-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes pp-scale-up {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.animate-rise {
+  animation: pp-rise 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-fade-in {
+  animation: pp-fade-in 0.35s ease-out both;
+}
+
+.animate-scale-up {
+  animation: pp-scale-up 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+
+
+/* ============================================================
+   Polish layer — refinements on top of the base system
+   ============================================================ */
+
+@keyframes pp-shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+
+@keyframes pp-slide-down {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@layer components {
+
+  /* ------------------------------------------------------------
+     Shimmer skeletons — reads as "loading", not as an empty box
+     ------------------------------------------------------------ */
+  .skeleton {
+    background-image: linear-gradient(
+      90deg,
+      #E8ECF6 0%,
+      #F4F7FC 45%,
+      #E8ECF6 90%
+    );
+    background-size: 200% 100%;
+    animation: pp-shimmer 1.5s linear infinite;
+    border-radius: 999px;
+  }
+
+  /* ------------------------------------------------------------
+     Tables — header pinned while the body scrolls
+     ------------------------------------------------------------ */
+  .table-sticky thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background-color: #F7F9FD;
+  }
+
+  /* A hovered row gets an accent rail on its leading edge. */
+  .row-rail {
+    box-shadow: inset 3px 0 0 transparent;
+    transition: background-color 0.14s ease, box-shadow 0.14s ease;
+  }
+  .row-rail:hover { box-shadow: inset 3px 0 0 var(--accent-light); }
+  .row-rail-active { box-shadow: inset 3px 0 0 var(--accent); }
+
+  /* ------------------------------------------------------------
+     Segmented control — for view / range switches
+     ------------------------------------------------------------ */
+  .segment {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    background-color: #EBEFF7;
+    border-radius: 999px;
+  }
+
+  .segment-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--slate);
+    background: transparent;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .segment-item:hover { color: var(--ink); }
+
+  .segment-item-active,
+  .segment-item-active:hover {
+    background-color: var(--paper);
+    color: var(--accent);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* ------------------------------------------------------------
+     Floating surfaces — dropdowns, popovers, menus
+     ------------------------------------------------------------ */
+  .sheet {
+    background-color: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-lg);
+    animation: pp-slide-down 0.16s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: var(--r-md);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink);
+    cursor: pointer;
+    text-align: left;
+    transition: background-color 0.13s ease, color 0.13s ease;
+  }
+  .menu-item:hover { background-color: var(--canvas); }
+
+  .menu-item-danger { color: var(--danger); }
+  .menu-item-danger:hover { background-color: var(--danger-soft); }
+
+  .menu-label {
+    padding: 8px 10px 4px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* ------------------------------------------------------------
+     Nav pill — the top-level navigation item
+     ------------------------------------------------------------ */
+  .nav-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 36px;
+    padding: 0 13px;
+    border-radius: var(--r-md);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--slate);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+  .nav-pill:hover { background-color: #EEF1F8; color: var(--ink); }
+
+  .nav-pill-active,
+  .nav-pill-active:hover {
+    background-color: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  /* ------------------------------------------------------------
+     Keyboard hint
+     ------------------------------------------------------------ */
+  .kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    border: 1px solid var(--line);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    background-color: #FAFBFE;
+    font-size: 11px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+  }
+
+  /* ------------------------------------------------------------
+     Meter — a share of a whole, under a KPI or beside a label
+     ------------------------------------------------------------ */
+  .meter {
+    height: 6px;
+    width: 100%;
+    border-radius: 999px;
+    background-color: #E9EDF6;
+    overflow: hidden;
+  }
+
+  .meter-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /* ------------------------------------------------------------
+     Delta chip — the change against a previous period
+     ------------------------------------------------------------ */
+  .delta {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 1px 6px 1px 4px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .delta-up   { background-color: var(--success-soft); color: var(--success); }
+  .delta-down { background-color: var(--danger-soft);  color: var(--danger); }
+  .delta-flat { background-color: #EDF0F6;             color: var(--slate); }
+
+  /* ------------------------------------------------------------
+     Section eyebrow — a small label above a group of cards
+     ------------------------------------------------------------ */
+  .eyebrow {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+}
+
+/* ============================================================
+   Buttons gain a lift on hover, and the primary shadow deepens
+   ============================================================ */
+.btn-primary:hover:not(:disabled) {
+  box-shadow: 0 6px 18px rgba(43, 80, 245, 0.34);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  box-shadow: var(--shadow-sm);
+}
+
+/* ============================================================
+   Anchored scrolling, and a body that never jumps when a modal
+   takes the scrollbar away.
+   ============================================================ */
+html {
+  scroll-behavior: smooth;
+  scrollbar-gutter: stable;
+}
+
+/* ============================================================
+   Respect the OS "reduce motion" setting — every entrance
+   animation collapses to an instant, correct final state.
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
