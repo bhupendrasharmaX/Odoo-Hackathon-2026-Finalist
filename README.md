@@ -137,106 +137,294 @@ unit-testable without a database.
 
 ## Application Flow
 
-### 1. Authentication
+End to end, from the login screen to a paid payslip and a resolved grievance.
 
 ```
-/login  ──POST /auth/login──►  { token, user }
-                               token → localStorage (pp360_token)
-                               ↓
-                        AuthProvider hydrates
-                        GET /auth/me on boot
-                               ↓
-                        ProtectedRoute ─► app shell
+                            ┌──────────────┐
+   any URL, no session ────►│  /login      │
+                            └──────┬───────┘
+                                   │ POST /auth/login  ─► JWT
+                                   ▼
+                        ┌──────────────────────┐
+                        │  AuthProvider boots  │  GET /auth/me
+                        │  ProtectedRoute      │
+                        └──────────┬───────────┘
+                                   ▼
+                        ┌──────────────────────┐
+                        │   /  landing         │  resolves by role
+                        └──┬────────┬───────┬──┘
+             ┌─────────────┘        │       └─────────────┐
+             ▼                      ▼                     ▼
+   ┌──────────────────┐   ┌──────────────────┐  ┌──────────────────┐
+   │ Payroll roles    │   │ HR_MANAGER       │  │ EMPLOYEE         │
+   │ + ADMIN          │   │                  │  │                  │
+   │ Payroll dashboard│   │ People overview  │  │ My workspace     │
+   └────────┬─────────┘   └────────┬─────────┘  └────────┬─────────┘
+            │                      │                     │
+            │  ┌───────────────────┴───────────┐         │
+            │  │  SETUP (people ops)           │         │
+            │  │  Departments → Employees      │         │
+            │  │    → Contracts (wage, dates)  │         │
+            │  │    → Working schedules        │         │
+            │  └───────────────┬───────────────┘         │
+            │                  │                         │
+            │  ┌───────────────┴───────────────┐         │
+            │  │  DAILY OPERATIONS             │◄────────┤ check in / out
+            │  │  Attendance  check in / out   │         │ request leave
+            │  │  Time off    allocate/approve │         │
+            │  └───────────────┬───────────────┘         │
+            │                  │                         │
+   ┌────────▼──────────────────▼─────────┐               │
+   │  PAYROLL  (HR_MANAGER excluded)     │               │
+   │                                     │               │
+   │  Salary structure + rules           │               │
+   │        ▼                            │               │
+   │  Payrun wizard  step 1 → step 2     │               │
+   │        ▼                            │               │
+   │  DRAFT → COMPUTED → VALIDATED → PAID│               │
+   │        ▼                            │               │
+   │  Send payslips  (PDF + email)       │               │
+   └────────────────┬────────────────────┘               │
+                    │                                    │
+                    └──────────► Payslip ◄───────────────┘
+                                    │  view / download PDF
+                                    ▼
+                            ┌───────────────┐
+                            │  Grievance    │  raised by employee
+                            │  OPEN         │
+                            │   → UNDER_REVIEW
+                            │   → RESOLVED / REJECTED
+                            └───────┬───────┘
+                                    ▼
+                                 Logout
+                          token cleared → /login
 ```
 
-A 401 on any request other than `/auth/me` clears the session and hard-redirects
-to `/login`. A 401 on `/auth/me` during boot is treated as a normal expired token
-and does not bounce the user mid-render.
+### Stage 1 — Session start
 
-### 2. The landing screen resolves by role
+```
+Visitor hits any protected URL
+        │
+        ├─ no token   ─► redirect /login, original path kept in location.state
+        │
+        └─ token present
+                 │
+                 ▼
+        AuthProvider: booting = true
+        full-screen "Restoring your session…" (no route flashes first)
+                 │
+                 ▼
+        GET /auth/me
+                 ├─ 200 ─► session restored ─► redirect back to the original path
+                 └─ 401 ─► treated as a normal expired token, land on /login
+```
+
+On the login screen, five seeded accounts are listed as one-click fills, so the
+role matrix can be walked without a setup step. Submitting calls
+`POST /auth/login`; the token goes to `localStorage` under `pp360_token` and the
+user is returned to wherever they were headed, not to a fixed home route.
+
+Thereafter every request carries `Authorization: Bearer <token>` via an Axios
+request interceptor. A 401 on any route other than `/auth/me` clears storage and
+hard-redirects to `/login` — the interceptor lives outside React, and the token
+is already gone either way.
+
+### Stage 2 — The landing screen resolves by role
 
 `/` does not render one fixed dashboard. `GET /dashboard` is payroll-scoped and
-refuses `HR_MANAGER` and `EMPLOYEE`, so each role is sent to a screen built only
-from endpoints it can actually read:
+refuses `HR_MANAGER` and `EMPLOYEE`, so each role lands on a screen built only
+from endpoints it can actually read — nobody is shown a panel that would 403.
 
-| Role | Landing screen |
+| Role | Landing | Built from |
+|---|---|---|
+| `ADMIN`, `HR_PAYROLL_MANAGER`, `HR_PAYROLL_USER` | Payroll dashboard | `/dashboard` — headcount, net payroll, department breakdown |
+| `HR_MANAGER` | People overview | Roster, running contracts, pending time off, recent attendance |
+| `EMPLOYEE` | My workspace | Own attendance, leave balance, own payslips |
+
+### Stage 3 — Navigation
+
+One top bar, six groups. Leaves appear only for roles that may open them, so the
+visible menu differs per role. A group left with a single visible leaf renders as
+a plain link.
+
+| Group | Leaves | Visible to |
+|---|---|---|
+| Dashboard | Dashboard | everyone (content resolves per Stage 2) |
+| People | Employees | everyone (`EMPLOYEE` sees only itself) |
+| | Contracts, Working schedules | `HR_PLUS` |
+| Attendance | Attendance | everyone |
+| Time Off | Requests, Allocations | everyone |
+| | Time off types | `HR_PLUS` |
+| Payroll | Payruns | `PAYROLL` |
+| | Payslips | `PAYSLIP_READ` |
+| | Salary structures, Salary rules | `SALARY_READ` |
+| More | Grievances, My account | everyone |
+| | Users &amp; roles | `ADMIN` |
+
+Hiding a link is convenience only. Reaching a restricted route directly renders
+an explicit "not available for your role" panel rather than a silent bounce — a
+redirect to the dashboard reads as a bug, and the wall between `HR_MANAGER` and
+payroll is a rule worth stating out loud. The server refuses independently.
+
+### Stage 4 — Setup, in the order payroll depends on it
+
+A payrun cannot compute until this chain exists. Each step is a prerequisite for
+the next.
+
+```
+Department
+    └─► Employee            code, contact, department, job position, manager
+            └─► Contract    wage, start date, end date (null = open-ended)
+            │               status DRAFT → RUNNING → EXPIRED / CANCELLED
+            │               overlapping RUNNING contracts are rejected
+            └─► Working schedule   named day/hour lines, e.g. 9–6 Mon–Fri
+
+Salary structure
+    └─► Salary rules, ordered by `sequence`
+            BASIC     ─ FIXED amount, or PERCENTAGE of contract wage
+            ALLOWANCE ─ PERCENTAGE of another rule, by code (HRA = 40% of BASIC)
+            GROSS     ─ FORMULA  "BASIC + HRA"
+            DEDUCTION ─ PERCENTAGE of another rule  (PF = 12% of BASIC)
+            NET       ─ FORMULA  "GROSS - PF"
+```
+
+Rules reference each other by `code`, so structures are edited as data. A rule
+computes by `FIXED`, `PERCENTAGE` or `FORMULA`; formulas are parsed rather than
+evaluated as JavaScript — member access and function calls are rejected, unknown
+identifiers throw instead of defaulting to zero, and division by zero has
+defined behaviour.
+
+### Stage 5 — Daily operations
+
+```
+ATTENDANCE
+  GET  /attendance/active     is there an open shift right now?
+  POST /attendance/check-in   opens the shift
+  POST /attendance/check-out  closes it, derives worked hours and overtime
+        │
+        └─► status: PRESENT · LATE · HALF_DAY · ABSENT · MISSING_CHECKOUT
+            (grace period before LATE; a missing checkout is flagged, not guessed)
+
+TIME OFF
+  Time off type       paid?, unit DAYS/HOURS, requires allocation?
+        │
+        ▼
+  Allocation          PENDING ──approve──► APPROVED
+        │                              └─► REFUSED
+        ▼
+  Request             DRAFT → PENDING ──► APPROVED
+        │                             └─► REFUSED
+        ▼
+  GET /timeoff/balance/:employeeId    allocated − taken = remaining
+
+  Unpaid leave days are carried into the next payroll computation.
+```
+
+`EMPLOYEE` raises its own requests and checks itself in and out. Approval sits
+with `HR_PLUS`.
+
+### Stage 6 — Running payroll
+
+The wizard collects scope, then previews eligibility. Nothing is created until
+the second step is confirmed.
+
+```
+STEP 1  Scope
+        salary structure + period start/end
+              │
+              ▼  POST /payruns/eligible-employees      preview only, creates nothing
+STEP 2  Eligibility
+        who has a contract in force for this period, and who does not
+        confirm the selection
+              │
+              ▼  POST /payruns                          the payrun now exists
+```
+
+From the payrun detail screen, a four-stage stepper drives it to completion:
+
+```
+  DRAFT ──POST /:id/compute──► COMPUTED ──POST /:id/validate──► VALIDATED
+                                                                    │
+                                          POST /:id/mark-paid ◄─────┘
+                                                    │
+                                                    ▼
+                                                   PAID ──POST /:id/send-payslips
+```
+
+**What `compute` does, per employee:**
+
+1. Resolve every contract in force during the period — if two contracts overlap
+   the period, *both* are returned with a pro-rata factor, never silently the
+   latest.
+2. Evaluate the structure's rules in `sequence` order, each writing its amount
+   into a context keyed by `rule.code` so later rules can reference earlier ones.
+3. Emit payslip lines. `DEDUCTION` lines are stored **negative** so the lines sum
+   to net, while the context keeps the magnitude — which is why `NET = GROSS - PF`
+   reads the way an HR user wrote it.
+4. Collect non-fatal warnings (missing bank account, no attendance, unusual
+   pro-rata).
+
+Compute is re-runnable: on a payrun already `COMPUTED` the action becomes
+*Recompute*. The result reports how many payslips computed and lists any that
+failed, rather than failing the whole run.
+
+**The validation guard:** a payrun cannot be validated while a high-severity
+warning is unresolved. That is the one place the workflow refuses to move
+forward on its own.
+
+### Stage 7 — Delivery
+
+```
+send-payslips
+     ├─► PDFKit renders each payslip
+     └─► Nodemailer sends it
+
+     With SMTP unset, the send is logged and still recorded as sent,
+     so the demo works offline.
+```
+
+An employee opens the payslip from their workspace, sees the line breakdown, and
+downloads the PDF via `GET /payslips/:id/pdf` — the one endpoint that returns a
+file rather than the JSON envelope.
+
+### Stage 8 — Grievance loop
+
+```
+Employee, from a payslip ─► "Raise a grievance"  subject + description
+                                    │
+                                    ▼
+                                  OPEN
+                                    │  payroll roles / ADMIN pick it up
+                                    ▼
+                              UNDER_REVIEW
+                                    │
+                          ┌─────────┴─────────┐
+                          ▼                   ▼
+                      RESOLVED             REJECTED
+                                 (with a written response)
+```
+
+The grievance carries `payslipId`, so the reviewer opens the exact payslip being
+disputed. `HR_MANAGER` cannot resolve one — it never sees the payslip in
+question.
+
+### Stage 9 — Session end
+
+Logout clears `pp360_token` and `pp360_user` and returns to `/login`. An expired
+token reaches the same place on the next request, through the 401 interceptor.
+
+### Where the flow is blocked, and by what
+
+| Attempt | Result |
 |---|---|
-| `ADMIN`, `HR_PAYROLL_MANAGER`, `HR_PAYROLL_USER` | Payroll dashboard — headcount, net payroll, department breakdown |
-| `HR_MANAGER` | People overview — directory, attendance, time-off queues |
-| `EMPLOYEE` | My workspace — own attendance, balances, payslips |
-
-### 3. Payroll run lifecycle
-
-The primary workflow of the product.
-
-```
-Configure                Run                              Deliver
-─────────                ───                              ───────
-Salary Structure    ┌─► POST /payruns/eligible-employees   (preview only)
-  └─ Salary Rules   │        │
-       sequenced    │        ▼
-       BASIC        └─► POST /payruns                DRAFT
-       ALLOWANCE             │
-       GROSS                 ▼
-       DEDUCTION      POST /payruns/:id/compute      COMPUTED
-       NET                   │   resolve contracts
-                             │   run the rule engine
-Employee                     │   emit payslip lines
-  └─ Contract (wage)         │   collect warnings
-       └─ Working Schedule   ▼
-            └─ Attendance  POST /payruns/:id/validate    VALIDATED
-                             │
-                             ▼
-                           POST /payruns/:id/mark-paid    PAID
-                             │
-                             ▼
-                           POST /payruns/:id/send-payslips
-                             │
-                             ├─► PDF via PDFKit  (GET /payslips/:id/pdf)
-                             └─► Email via Nodemailer
-
-Payrun states:  DRAFT → COMPUTED → VALIDATED → PAID   (or CANCELLED)
-Payslip states: DRAFT → COMPUTED → VALIDATED → PAID
-```
-
-**How a payslip is computed.** Rules are sorted by ascending `sequence` and
-evaluated in order, each writing its amount into a context keyed by `rule.code`
-so later rules can reference earlier ones. `DEDUCTION` lines are stored negative,
-so the lines sum to net — while the context keeps the magnitude, which is why
-`NET = GROSS - PF` reads the way an HR user wrote it.
-
-A rule computes by `FIXED` amount, `PERCENTAGE` of another rule (or of the
-contract wage), or `FORMULA`. Formulas are parsed, not evaluated as JavaScript:
-member access and function calls are rejected, unknown identifiers throw rather
-than defaulting to zero, and division by zero has defined behaviour.
-
-### 4. Attendance and time off
-
-```
-Attendance:  POST /attendance/check-in ─► GET /attendance/active
-                                       ─► POST /attendance/check-out
-             → worked hours, overtime, status
-               PRESENT / LATE / HALF_DAY / ABSENT / MISSING_CHECKOUT
-
-Time off:    TimeOffType  (paid?, unit, requires allocation?)
-                  │
-                  ▼
-             Allocation      PENDING ──approve──► APPROVED / REFUSED
-                  │
-                  ▼
-             Request         DRAFT → PENDING ──►  APPROVED / REFUSED
-                  │
-                  ▼
-             GET /timeoff/balance/:employeeId
-
-             Unpaid leave days feed the next payroll computation.
-```
-
-### 5. Grievances
-
-An employee raises a grievance, optionally attached to a specific payslip:
-`OPEN → UNDER_REVIEW → RESOLVED | REJECTED`. Only payroll roles and `ADMIN` may
-resolve one; `HR_MANAGER` cannot, since it never sees the payslip in question.
+| Any request without a valid token | `401 UNAUTHORIZED` |
+| `HR_MANAGER` opening any payroll route | `403` — server-enforced, on every payroll endpoint |
+| `HR_PAYROLL_USER` writing a salary structure or rule | `403` — read-only on salary config |
+| Non-`ADMIN` opening `/users` | `403` |
+| `EMPLOYEE` reading another employee's record or balance | `403`, not an empty list |
+| Creating a contract overlapping a `RUNNING` one | Rejected at validation |
+| Computing a payrun for an employee with no contract in the period | `NO_CONTRACT_FOR_PERIOD` |
+| Validating a payrun with an unresolved high-severity warning | Blocked at the guard |
 
 ---
 
@@ -351,7 +539,8 @@ The app runs at **http://localhost:5173**.
 
 ## Demo Accounts
 
-Created by the seed. The password is `demo1234` for every account.
+Created by the seed. The password is `demo1234` for every account. The login
+screen lists all five as one-click fills.
 
 | Email | Role | Sees |
 |---|---|---|
