@@ -1,28 +1,35 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { asyncHandler } from '../../http/asyncHandler';
-import { notImplemented } from '../../http/errors';
+import { sendData } from '../../http/envelope';
+import { unauthorized } from '../../http/errors';
 import { requireAuth } from '../../middleware/requireAuth';
+import { validate } from '../../middleware/validate';
+import { login, me } from './auth.service';
 
-/**
- * TODO (auth.service.ts):
- *   login(email, password)  -> bcrypt.compare, sign a 24h JWT
- *                              { userId, employeeId, role, email, name }
- *   me(userId)              -> current user + role + employeeId
- */
 export const authRouter = Router();
+
+const loginSchema = z.object({
+  email: z.string().min(1, 'Email is required').email('Enter a valid email address'),
+  password: z.string().min(1, 'Password is required'),
+});
 
 // Public.
 authRouter.post(
   '/login',
-  asyncHandler(async () => {
-    throw notImplemented('POST /auth/login');
+  validate({ body: loginSchema }),
+  asyncHandler(async (req, res) => {
+    const { email, password } = req.body as z.infer<typeof loginSchema>;
+    const result = await login(email, password);
+    sendData(res, result, 'Signed in');
   }),
 );
 
 authRouter.get(
   '/me',
   requireAuth,
-  asyncHandler(async () => {
-    throw notImplemented('GET /auth/me');
+  asyncHandler(async (req, res) => {
+    if (!req.user) throw unauthorized();
+    sendData(res, await me(req.user.userId));
   }),
 );

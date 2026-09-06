@@ -27,3 +27,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Secrets - never commit. server/.env.example is the template.
+server/.env
+server/.env.*
+!server/.env.example
+
+# Prisma generated client
+server/src/generated
